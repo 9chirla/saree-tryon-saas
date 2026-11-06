@@ -516,9 +516,19 @@ export function KioskApp({ storeSlug }: { storeSlug: string }) {
               </button>
             </div>
             {result.url && (
-              <a className="btn-secondary mt-3 inline-flex w-full" href={result.url} download="tryon-result.jpg">
-                {t(locale, "download")}
-              </a>
+              <div className="mt-3 flex flex-col gap-3 sm:flex-row">
+                <a className="btn-secondary flex-1" href={result.url} download="tryon-result.jpg">
+                  {t(locale, "download")}
+                </a>
+                <a
+                  className="btn-secondary flex-1"
+                  href={`https://wa.me/?text=${encodeURIComponent("My saree try-on preview from the store kiosk")}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Share on WhatsApp
+                </a>
+              </div>
             )}
           </section>
         )}

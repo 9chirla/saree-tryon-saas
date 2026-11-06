@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { AppNav } from "@/components/AppNav";
+import { StoreSwitcher } from "@/components/StoreSwitcher";
 
 type Saree = {
   id: string;
@@ -62,6 +63,9 @@ export default function CataloguePage() {
             { href: "/dashboard/billing", label: "Subscription" },
           ]}
         />
+        <div className="mb-4">
+          <StoreSwitcher onChanged={() => load().catch((e) => setError(e.message))} />
+        </div>
         {error && <p className="mb-4 text-red-700">{error}</p>}
         <form onSubmit={onCreate} className="panel mb-6 grid gap-3 md:grid-cols-4">
           <input
@@ -82,6 +86,11 @@ export default function CataloguePage() {
             Add saree
           </button>
         </form>
+        {sarees.length === 0 && (
+          <p className="mb-4 rounded-xl bg-white/60 px-4 py-6 text-center text-[var(--muted)]">
+            No sarees yet. Add your first catalogue item above — clear photos work best for try-on.
+          </p>
+        )}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {sarees.map((s) => (
             <article key={s.id} className="panel !p-0 overflow-hidden">

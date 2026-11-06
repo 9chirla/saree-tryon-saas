@@ -90,7 +90,7 @@ export async function POST(req: Request) {
       return { user, store, org };
     });
 
-    await createSession(result.user.id);
+    await createSession(result.user.id, false);
     return jsonOk({
       user: { id: result.user.id, email: result.user.email, name: result.user.name },
       store: { id: result.store.id, slug: result.store.slug, name: result.store.name },

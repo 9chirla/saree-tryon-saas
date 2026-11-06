@@ -1,36 +1,38 @@
 import { z } from "zod";
 import { Role } from "@prisma/client";
-import { assertStoreAccess, getSessionUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { assertSameOrigin, handleRouteError, jsonError, jsonOk } from "@/lib/api";
-import { detectImageMime, extForMime, saveUpload, signPath } from "@/lib/storage";
+import { detectImageMime, extForMime, saveUpload, signedMediaUrl, signPath } from "@/lib/storage";
+import { requireStoreContext } from "@/lib/store-context";
 
-export async function GET() {
+async function mediaUrl(key: string) {
+  if (key.startsWith("s3:")) return signedMediaUrl(key);
+  const signed = signPath(key);
+  return `/api/media?path=${encodeURIComponent(signed.path)}&exp=${signed.exp}&sig=${signed.sig}`;
+}
+
+export async function GET(req: Request) {
   try {
-    const user = await getSessionUser();
-    if (!user) return jsonError("Unauthorized", 401);
-    const membership = user.memberships[0];
-    if (!membership && !user.isSuperAdmin) return jsonError("Forbidden", 403);
-    const storeId = membership?.storeId;
-    if (!storeId) return jsonError("No store", 400);
-
+    const { membership } = await requireStoreContext(req);
     const sarees = await prisma.sareeProduct.findMany({
-      where: { storeId },
+      where: { storeId: membership.storeId },
       include: { images: { orderBy: { sortOrder: "asc" } } },
       orderBy: { updatedAt: "desc" },
     });
 
     return jsonOk({
-      sarees: sarees.map((s) => ({
-        ...s,
-        images: s.images.map((img) => {
-          const signed = signPath(img.path);
-          return {
-            ...img,
-            url: `/api/media?path=${encodeURIComponent(signed.path)}&exp=${signed.exp}&sig=${signed.sig}`,
-          };
-        }),
-      })),
+      storeId: membership.storeId,
+      sarees: await Promise.all(
+        sarees.map(async (s) => ({
+          ...s,
+          images: await Promise.all(
+            s.images.map(async (img) => ({
+              ...img,
+              url: await mediaUrl(img.path),
+            })),
+          ),
+        })),
+      ),
     });
   } catch (err) {
     return handleRouteError(err);
@@ -50,11 +52,10 @@ const createSchema = z.object({
 export async function POST(req: Request) {
   try {
     assertSameOrigin(req);
-    const user = await getSessionUser();
-    if (!user) return jsonError("Unauthorized", 401);
-    const membership = user.memberships[0];
-    if (!membership) return jsonError("Forbidden", 403);
-    assertStoreAccess(user, membership.storeId, [Role.ORG_OWNER, Role.STORE_MANAGER]);
+    const { membership } = await requireStoreContext(req, [
+      Role.ORG_OWNER,
+      Role.STORE_MANAGER,
+    ]);
 
     const contentType = req.headers.get("content-type") ?? "";
     if (contentType.includes("multipart/form-data")) {
@@ -71,6 +72,7 @@ export async function POST(req: Request) {
       const file = form.get("image");
       let imagePath: string | undefined;
       if (file instanceof File && file.size > 0) {
+        if (file.size > 8 * 1024 * 1024) return jsonError("Image too large (max 8MB)", 413);
         const buf = Buffer.from(await file.arrayBuffer());
         const mime = detectImageMime(buf);
         if (!mime) return jsonError("Invalid image", 415);
@@ -78,6 +80,7 @@ export async function POST(req: Request) {
           `catalogue/${membership.storeId}`,
           buf,
           extForMime(mime),
+          "catalogue",
         );
       }
       const saree = await prisma.sareeProduct.create({

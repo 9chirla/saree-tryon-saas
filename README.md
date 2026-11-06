@@ -87,6 +87,16 @@ npm run typecheck --workspace=apps/web
 | `external` | `EXTERNAL_TRYON_URL`, `EXTERNAL_TRYON_API_KEY` | Async HTTP API; fails closed if unset |
 | `selfhosted` | `AI_WORKER_URL` | FastAPI stub (GPU model not included) |
 
+## Phase 2 (pilot hardening)
+
+- Route middleware for `/dashboard` and `/admin`
+- Multi-store active store selection (`x-store-id` / cookie)
+- Object storage abstraction (`local` | `s3`)
+- Customer image retention cleanup (`/api/internal/cleanup`)
+- Credit restore on qualifying failures; subscription grace / PAST_DUE
+- Razorpay Checkout.js when credentials exist
+- See `docs/DEPLOYMENT.md` and `docs/AI_PROVIDER.md`
+
 ## Project path
 
-This workspace lives at `/agent/saree-tryon-saas` when built by the cloud agent. Architecture plan and implementation report are in the Project store under `docs/`.
+This workspace lives at `/agent/saree-tryon-saas`. Architecture / implementation / Phase 2 reports are also in the Project Agent Store `docs/`.

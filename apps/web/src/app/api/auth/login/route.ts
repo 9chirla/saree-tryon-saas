@@ -21,7 +21,7 @@ export async function POST(req: Request) {
     if (!user || !(await verifyPassword(body.password, user.passwordHash))) {
       return jsonError("Invalid email or password", 401);
     }
-    await createSession(user.id);
+    await createSession(user.id, user.isSuperAdmin);
     return jsonOk({
       user: {
         id: user.id,

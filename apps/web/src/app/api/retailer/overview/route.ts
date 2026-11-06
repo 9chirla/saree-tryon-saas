@@ -1,16 +1,14 @@
-import { getSessionUser, AuthError } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { handleRouteError, jsonError, jsonOk } from "@/lib/api";
+import { handleRouteError, jsonOk } from "@/lib/api";
+import { requireStoreContext } from "@/lib/store-context";
+import { enforceSubscriptionAccess } from "@/lib/billing/subscription-state";
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
-    const user = await getSessionUser();
-    if (!user) return jsonError("Unauthorized", 401);
-    if (user.isSuperAdmin && user.memberships.length === 0) {
+    const { user, membership } = await requireStoreContext(req);
+    if (user.isSuperAdmin && user.memberships.length === 0 && !membership.storeId) {
       return jsonOk({ role: "SUPER_ADMIN", message: "Use /admin for platform metrics" });
     }
-    const membership = user.memberships[0];
-    if (!membership) throw new AuthError("No store membership", 403);
 
     const store = await prisma.store.findUniqueOrThrow({
       where: { id: membership.storeId },
@@ -19,6 +17,10 @@ export async function GET() {
         _count: { select: { sarees: true, tryonJobs: true } },
       },
     });
+
+    const subState = store.organisation.subscription
+      ? await enforceSubscriptionAccess(store.organisation.subscription.id)
+      : null;
 
     const succeeded = await prisma.tryOnJob.count({
       where: { storeId: store.id, status: "SUCCEEDED" },
@@ -32,8 +34,14 @@ export async function GET() {
 
     return jsonOk({
       store: { id: store.id, name: store.name, slug: store.slug },
+      stores: user.memberships.map((m) => ({
+        id: m.storeId,
+        name: m.storeName,
+        slug: m.storeSlug,
+        role: m.role,
+      })),
       organisation: { id: store.organisationId, name: store.organisation.name },
-      subscription: store.organisation.subscription,
+      subscription: subState ?? store.organisation.subscription,
       counts: {
         sarees: store._count.sarees,
         jobs: store._count.tryonJobs,

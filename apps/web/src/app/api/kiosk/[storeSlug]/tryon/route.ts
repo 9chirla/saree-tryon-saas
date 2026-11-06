@@ -6,6 +6,10 @@ import { rateLimit } from "@/lib/rate-limit";
 import { env } from "@/lib/env";
 import { existsUpload } from "@/lib/storage";
 import { getTryOnProvider } from "@/lib/tryon";
+import {
+  enforceSubscriptionAccess,
+  subscriptionAllowsTryOn,
+} from "@/lib/billing/subscription-state";
 
 const schema = z.object({
   sessionId: z.string().uuid(),
@@ -38,8 +42,15 @@ export async function POST(
     });
     if (!consent) return jsonError("Consent required", 403);
 
-    const sub = store.organisation.subscription;
-    if (!sub || sub.creditsRemaining < 1) {
+    let sub = store.organisation.subscription;
+    if (!sub) {
+      return jsonError("Store has no subscription", 402);
+    }
+    sub = await enforceSubscriptionAccess(sub.id);
+    if (!subscriptionAllowsTryOn(sub.status)) {
+      return jsonError(`Subscription ${sub.status} — try-ons paused`, 402);
+    }
+    if (sub.creditsRemaining < 1) {
       return jsonError("Store has no remaining try-on credits", 402);
     }
 

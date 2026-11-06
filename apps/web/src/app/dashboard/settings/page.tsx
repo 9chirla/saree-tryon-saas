@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { AppNav } from "@/components/AppNav";
+import { StoreSwitcher } from "@/components/StoreSwitcher";
 
 export default function SettingsPage() {
   const [form, setForm] = useState({
@@ -12,9 +13,12 @@ export default function SettingsPage() {
     defaultLocale: "en",
     retentionHours: 24,
   });
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  function load() {
     fetch("/api/retailer/settings")
       .then((r) => r.json())
       .then((j) => {
@@ -27,19 +31,31 @@ export default function SettingsPage() {
             defaultLocale: j.settings.defaultLocale,
             retentionHours: j.settings.retentionHours,
           });
+          setLogoUrl(j.settings.logoUrl ?? null);
         }
       });
+  }
+
+  useEffect(() => {
+    load();
   }, []);
 
   async function onSave(e: FormEvent) {
     e.preventDefault();
-    const res = await fetch("/api/retailer/settings", {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(form),
-    });
+    setMessage(null);
+    setError(null);
+    const fd = new FormData();
+    Object.entries(form).forEach(([k, v]) => fd.append(k, String(v)));
+    if (logoFile) fd.append("logo", logoFile);
+    const res = await fetch("/api/retailer/settings", { method: "PATCH", body: fd });
     const j = await res.json();
-    setMessage(res.ok ? "Saved" : j.error || "Failed");
+    if (!res.ok) {
+      setError(j.error || "Failed to save");
+      return;
+    }
+    setMessage("Saved");
+    setLogoFile(null);
+    if (j.settings?.logoUrl) setLogoUrl(j.settings.logoUrl);
   }
 
   return (
@@ -54,7 +70,23 @@ export default function SettingsPage() {
             { href: "/dashboard/billing", label: "Subscription" },
           ]}
         />
+        <div className="mb-4">
+          <StoreSwitcher onChanged={load} />
+        </div>
         <form onSubmit={onSave} className="panel space-y-4">
+          <label className="block text-sm">
+            Store logo
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="mt-1 block w-full text-sm"
+              onChange={(e) => setLogoFile(e.target.files?.[0] ?? null)}
+            />
+          </label>
+          {logoUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={logoUrl} alt="Store logo" className="h-20 w-20 rounded-xl object-cover" />
+          )}
           {(
             [
               ["welcomeMessage", "Welcome message"],
@@ -85,15 +117,18 @@ export default function SettingsPage() {
             </select>
           </label>
           <label className="block text-sm">
-            Retention hours
+            Customer image retention (hours)
             <input
               type="number"
+              min={1}
+              max={168}
               className="mt-1 w-full rounded-xl border px-3 py-2"
               value={form.retentionHours}
               onChange={(e) => setForm((f) => ({ ...f, retentionHours: Number(e.target.value) }))}
             />
           </label>
           {message && <p className="text-sm text-[var(--burgundy)]">{message}</p>}
+          {error && <p className="text-sm text-red-700">{error}</p>}
           <button className="btn-primary" type="submit">
             Save settings
           </button>

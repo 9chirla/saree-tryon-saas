@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AppNav } from "@/components/AppNav";
+import { StoreSwitcher } from "@/components/StoreSwitcher";
 
 type Overview = {
   store: { id: string; name: string; slug: string };
@@ -20,7 +21,7 @@ export default function DashboardPage() {
   const [data, setData] = useState<Overview | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  function load() {
     fetch("/api/retailer/overview")
       .then(async (r) => {
         const j = await r.json();
@@ -28,6 +29,10 @@ export default function DashboardPage() {
         setData(j);
       })
       .catch((e) => setError(e.message));
+  }
+
+  useEffect(() => {
+    load();
   }, []);
 
   return (
@@ -42,6 +47,12 @@ export default function DashboardPage() {
             { href: "/dashboard/billing", label: "Subscription" },
           ]}
         />
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <StoreSwitcher onChanged={load} />
+          <Link href="/dashboard/onboarding" className="text-sm text-[var(--burgundy)] underline">
+            Onboarding checklist
+          </Link>
+        </div>
         {error && <p className="text-red-700">{error}</p>}
         {data && (
           <div className="animate-fade-up space-y-6">
@@ -57,23 +68,35 @@ export default function DashboardPage() {
               </p>
               <div className="mt-6 grid gap-4 sm:grid-cols-3">
                 <Stat label="Credits remaining" value={String(data.subscription?.creditsRemaining ?? 0)} />
-                <Stat label="Plan" value={`${data.subscription?.plan.name ?? "—"} (${data.subscription?.status})`} />
+                <Stat
+                  label="Plan"
+                  value={`${data.subscription?.plan.name ?? "—"} (${data.subscription?.status})`}
+                />
                 <Stat label="Successful try-ons" value={String(data.counts.succeeded)} />
               </div>
             </section>
             <section className="panel">
               <h2 className="text-lg font-semibold">Recent jobs</h2>
-              <ul className="mt-3 divide-y divide-[rgba(107,30,46,0.08)]">
-                {data.recent.map((j) => (
-                  <li key={j.id} className="flex justify-between py-2 text-sm">
-                    <span className="font-mono text-xs">{j.id.slice(0, 8)}</span>
-                    <span>{j.status}</span>
-                    <span>{j.provider}</span>
-                    <span>−{j.creditsCharged}</span>
-                  </li>
-                ))}
-                {data.recent.length === 0 && <li className="py-2 text-[var(--muted)]">No jobs yet</li>}
-              </ul>
+              {data.recent.length === 0 ? (
+                <p className="mt-3 text-[var(--muted)]">
+                  No try-ons yet. Open the{" "}
+                  <Link className="underline" href={`/kiosk/${data.store.slug}`}>
+                    kiosk
+                  </Link>{" "}
+                  to run a demo session.
+                </p>
+              ) : (
+                <ul className="mt-3 divide-y divide-[rgba(107,30,46,0.08)]">
+                  {data.recent.map((j) => (
+                    <li key={j.id} className="flex justify-between py-2 text-sm">
+                      <span className="font-mono text-xs">{j.id.slice(0, 8)}</span>
+                      <span>{j.status}</span>
+                      <span>{j.provider}</span>
+                      <span>−{j.creditsCharged}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </section>
           </div>
         )}

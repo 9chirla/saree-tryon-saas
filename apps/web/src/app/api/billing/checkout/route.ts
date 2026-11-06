@@ -1,9 +1,11 @@
 import { z } from "zod";
-import { getSessionUser } from "@/lib/auth";
+import { Role } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { assertSameOrigin, handleRouteError, jsonError, jsonOk } from "@/lib/api";
 import { startSubscriptionCheckout } from "@/lib/billing/razorpay";
-import { razorpayConfigured } from "@/lib/env";
+import { env, razorpayConfigured } from "@/lib/env";
+import { requireStoreContext } from "@/lib/store-context";
+import { enforceSubscriptionAccess } from "@/lib/billing/subscription-state";
 
 const schema = z.object({
   planCode: z.enum(["BASIC", "PROFESSIONAL", "ENTERPRISE"]),
@@ -12,11 +14,13 @@ const schema = z.object({
 export async function POST(req: Request) {
   try {
     assertSameOrigin(req);
-    const user = await getSessionUser();
-    if (!user) return jsonError("Unauthorized", 401);
-    const membership = user.memberships[0];
-    if (!membership && !user.isSuperAdmin) return jsonError("Forbidden", 403);
-    if (!membership) return jsonError("No organisation membership", 400);
+    const { user, membership } = await requireStoreContext(req, [
+      Role.ORG_OWNER,
+      Role.STORE_MANAGER,
+    ]);
+    if (membership.organisationId === "*") {
+      return jsonError("Specify a retailer store for checkout", 400);
+    }
 
     const body = schema.parse(await req.json());
     const plan = await prisma.subscriptionPlan.findUnique({ where: { code: body.planCode } });
@@ -42,6 +46,17 @@ export async function POST(req: Request) {
     return jsonOk({
       ...result,
       configured: razorpayConfigured(),
+      razorpayMode: env.razorpayMode,
+      checkout: result.mode === "razorpay"
+        ? {
+            key: result.keyId,
+            subscription_id: result.subscriptionId,
+            name: "trAIl9 Saree Try-On",
+            description: `${plan.name} plan`,
+            prefill: { email: user.email, name: user.name },
+            theme: { color: "#6B1E2E" },
+          }
+        : null,
       plan: {
         code: plan.code,
         name: plan.name,
@@ -54,24 +69,31 @@ export async function POST(req: Request) {
   }
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
-    const user = await getSessionUser();
-    if (!user) return jsonError("Unauthorized", 401);
-    const membership = user.memberships[0];
+    const { membership } = await requireStoreContext(req);
     const plans = await prisma.subscriptionPlan.findMany({
       where: { isActive: true },
       orderBy: { priceInrPaise: "asc" },
     });
-    const subscription = membership
-      ? await prisma.subscription.findUnique({
-          where: { organisationId: membership.organisationId },
-          include: { plan: true },
-        })
-      : null;
+    let subscription =
+      membership.organisationId !== "*"
+        ? await prisma.subscription.findUnique({
+            where: { organisationId: membership.organisationId },
+            include: { plan: true },
+          })
+        : null;
+    if (subscription) {
+      subscription = await enforceSubscriptionAccess(subscription.id);
+    }
     return jsonOk({
       configured: razorpayConfigured(),
-      billingMode: razorpayConfigured() ? "razorpay_test" : "missing_credentials",
+      billingMode: razorpayConfigured()
+        ? env.razorpayMode === "live"
+          ? "razorpay_live"
+          : "razorpay_test"
+        : "missing_credentials",
+      razorpayMode: env.razorpayMode,
       plans,
       subscription,
     });

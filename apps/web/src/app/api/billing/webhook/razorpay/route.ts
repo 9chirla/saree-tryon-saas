@@ -2,6 +2,7 @@ import { SubscriptionStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { handleRouteError, jsonError, jsonOk } from "@/lib/api";
 import { verifyWebhookSignature } from "@/lib/billing/razorpay";
+import { env } from "@/lib/env";
 
 export async function POST(req: Request) {
   try {
@@ -15,7 +16,9 @@ export async function POST(req: Request) {
       id?: string;
       event: string;
       payload: {
-        subscription?: { entity: { id: string; notes?: { organisationId?: string; planCode?: string } } };
+        subscription?: {
+          entity: { id: string; notes?: { organisationId?: string; planCode?: string } };
+        };
         payment?: { entity: { id: string; amount: number; status: string } };
       };
     };
@@ -56,6 +59,7 @@ export async function POST(req: Request) {
               status: SubscriptionStatus.ACTIVE,
               currentPeriodStart: new Date(),
               currentPeriodEnd: periodEnd,
+              graceUntil: null,
               creditsRemaining: sub.plan.monthlyCredits,
               creditsPeriodTotal: sub.plan.monthlyCredits,
             },
@@ -73,16 +77,62 @@ export async function POST(req: Request) {
               },
             });
           }
-          if (event.payload.payment?.entity) {
-            await prisma.payment.create({
-              data: {
-                subscriptionId: sub.id,
-                amountPaise: event.payload.payment.entity.amount,
-                status: "SUCCEEDED",
-                providerPaymentId: event.payload.payment.entity.id,
-              },
-            });
+          if (event.payload.payment?.entity?.status === "captured" || event.payload.payment?.entity) {
+            // Only record SUCCEEDED when provider entity indicates success — never fabricate.
+            const payStatus = event.payload.payment.entity.status;
+            if (!payStatus || payStatus === "captured" || payStatus === "authorized") {
+              await prisma.payment.create({
+                data: {
+                  subscriptionId: sub.id,
+                  amountPaise: event.payload.payment.entity.amount,
+                  status: "SUCCEEDED",
+                  providerPaymentId: event.payload.payment.entity.id,
+                },
+              });
+            }
           }
+        }
+      }
+    }
+
+    if (
+      event.event === "subscription.pending" ||
+      event.event === "subscription.halted" ||
+      event.event === "payment.failed"
+    ) {
+      const subEntity = event.payload.subscription?.entity;
+      if (subEntity?.id) {
+        const sub = await prisma.subscription.findFirst({
+          where: { razorpaySubscriptionId: subEntity.id },
+        });
+        if (sub) {
+          const graceUntil = new Date(
+            Date.now() + env.billingGraceDays * 86400_000,
+          );
+          await prisma.subscription.update({
+            where: { id: sub.id },
+            data: {
+              status: SubscriptionStatus.PAST_DUE,
+              graceUntil: sub.graceUntil ?? graceUntil,
+            },
+          });
+        }
+      }
+      if (event.payload.payment?.entity) {
+        const sub = await prisma.subscription.findFirst({
+          where: {
+            razorpaySubscriptionId: event.payload.subscription?.entity?.id ?? "",
+          },
+        });
+        if (sub) {
+          await prisma.payment.create({
+            data: {
+              subscriptionId: sub.id,
+              amountPaise: event.payload.payment.entity.amount,
+              status: "FAILED",
+              providerPaymentId: event.payload.payment.entity.id,
+            },
+          });
         }
       }
     }
