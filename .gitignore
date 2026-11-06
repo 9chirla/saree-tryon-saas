@@ -15,3 +15,5 @@ apps/web/prisma/*.db
 apps/web/prisma/*.db-journal
 .turbo
 *.tsbuildinfo
+apps/web/test-results/
+apps/web/playwright-report/

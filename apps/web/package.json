@@ -12,7 +12,8 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
-    "db:push": "prisma db push"
+    "db:push": "prisma db push",
+    "test:e2e": "playwright test"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -37,6 +38,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@playwright/test": "^1.51.1",
     "@testing-library/react": "^16.3.3",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20",
