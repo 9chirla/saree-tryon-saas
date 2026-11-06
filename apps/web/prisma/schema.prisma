@@ -1,0 +1,295 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  ORG_OWNER
+  STORE_MANAGER
+  STORE_STAFF
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+  EXPIRED
+  DEMO
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+}
+
+enum TryOnStatus {
+  QUEUED
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+}
+
+enum CreditTxnType {
+  GRANT
+  DEDUCT
+  RESTORE
+  ADJUST
+}
+
+model User {
+  id           String         @id @default(uuid()) @db.Uuid
+  email        String         @unique
+  passwordHash String
+  name         String
+  isSuperAdmin Boolean        @default(false)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  memberships  StoreMember[]
+  auditLogs    AuditLog[]
+  consents     CustomerConsent[] @relation("ConsentStaff")
+}
+
+model Organisation {
+  id            String         @id @default(uuid()) @db.Uuid
+  name          String
+  slug          String         @unique
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  stores        Store[]
+  subscription  Subscription?
+}
+
+model Store {
+  id           String          @id @default(uuid()) @db.Uuid
+  organisationId String        @db.Uuid
+  name         String
+  slug         String          @unique
+  isActive     Boolean         @default(true)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  organisation Organisation    @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  members      StoreMember[]
+  settings     StoreSettings?
+  sarees       SareeProduct[]
+  tryonJobs    TryOnJob[]
+  consents     CustomerConsent[]
+  creditTxns   CreditTransaction[]
+}
+
+model StoreMember {
+  id        String   @id @default(uuid()) @db.Uuid
+  storeId   String   @db.Uuid
+  userId    String   @db.Uuid
+  role      Role
+  createdAt DateTime @default(now())
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, userId])
+  @@index([userId])
+}
+
+model SubscriptionPlan {
+  id              String         @id @default(uuid()) @db.Uuid
+  code            String         @unique
+  name            String
+  priceInrPaise   Int
+  monthlyCredits  Int
+  razorpayPlanId  String?
+  isActive        Boolean        @default(true)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  subscriptions   Subscription[]
+}
+
+model Subscription {
+  id                   String             @id @default(uuid()) @db.Uuid
+  organisationId       String             @unique @db.Uuid
+  planId               String             @db.Uuid
+  status               SubscriptionStatus @default(DEMO)
+  creditsRemaining     Int                @default(0)
+  creditsPeriodTotal   Int                @default(0)
+  currentPeriodStart   DateTime?
+  currentPeriodEnd     DateTime?
+  razorpaySubscriptionId String?
+  graceUntil           DateTime?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  organisation         Organisation       @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  plan                 SubscriptionPlan   @relation(fields: [planId], references: [id])
+  payments             Payment[]
+}
+
+model Payment {
+  id             String        @id @default(uuid()) @db.Uuid
+  subscriptionId String        @db.Uuid
+  amountPaise    Int
+  currency       String        @default("INR")
+  status         PaymentStatus @default(PENDING)
+  provider       String        @default("razorpay")
+  providerPaymentId String?
+  rawMeta        Json?
+  createdAt      DateTime      @default(now())
+  subscription   Subscription  @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([providerPaymentId])
+}
+
+model BillingEvent {
+  id               String   @id @default(uuid()) @db.Uuid
+  provider         String
+  providerEventId  String
+  eventType        String
+  payload          Json
+  processedAt      DateTime @default(now())
+
+  @@unique([provider, providerEventId])
+}
+
+model SareeProduct {
+  id          String        @id @default(uuid()) @db.Uuid
+  storeId     String        @db.Uuid
+  name        String
+  sku         String?
+  description String?
+  fabric      String?
+  color       String?
+  occasion    String?
+  priceInr    Int?
+  isActive    Boolean       @default(true)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  store       Store         @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  images      SareeImage[]
+  tryonJobs   TryOnJob[]
+
+  @@index([storeId, isActive])
+}
+
+model SareeImage {
+  id        String       @id @default(uuid()) @db.Uuid
+  sareeId   String       @db.Uuid
+  path      String
+  sortOrder Int          @default(0)
+  createdAt DateTime     @default(now())
+  saree     SareeProduct @relation(fields: [sareeId], references: [id], onDelete: Cascade)
+}
+
+model TryOnJob {
+  id              String        @id @default(uuid()) @db.Uuid
+  storeId         String        @db.Uuid
+  sareeId         String?       @db.Uuid
+  status          TryOnStatus   @default(QUEUED)
+  provider        String
+  providerJobId   String?
+  personImagePath String
+  sareeImagePath  String
+  errorMessage    String?
+  durationMs      Int?
+  creditsCharged  Int           @default(0)
+  consentId       String?       @db.Uuid
+  sessionId       String
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  completedAt     DateTime?
+  expiresAt       DateTime
+  store           Store         @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  saree           SareeProduct? @relation(fields: [sareeId], references: [id], onDelete: SetNull)
+  consent         CustomerConsent? @relation(fields: [consentId], references: [id], onDelete: SetNull)
+  result          TryOnResult?
+  creditTxn       CreditTransaction?
+
+  @@index([storeId, createdAt])
+  @@index([status])
+  @@index([sessionId])
+}
+
+model TryOnResult {
+  id           String   @id @default(uuid()) @db.Uuid
+  jobId        String   @unique @db.Uuid
+  resultPath   String
+  isDemo       Boolean  @default(false)
+  label        String?
+  providerMeta Json?
+  createdAt    DateTime @default(now())
+  job          TryOnJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+}
+
+model CreditTransaction {
+  id             String        @id @default(uuid()) @db.Uuid
+  storeId        String        @db.Uuid
+  organisationId String        @db.Uuid
+  type           CreditTxnType
+  amount         Int
+  balanceAfter   Int
+  reason         String
+  tryonJobId     String?       @unique @db.Uuid
+  createdAt      DateTime      @default(now())
+  store          Store         @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  tryonJob       TryOnJob?     @relation(fields: [tryonJobId], references: [id], onDelete: SetNull)
+
+  @@index([organisationId, createdAt])
+}
+
+model AiProvider {
+  id          String   @id @default(uuid()) @db.Uuid
+  code        String   @unique
+  name        String
+  isEnabled   Boolean  @default(false)
+  configHint  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model StoreSettings {
+  id              String   @id @default(uuid()) @db.Uuid
+  storeId         String   @unique @db.Uuid
+  logoPath        String?
+  primaryColor    String   @default("#6B1E2E")
+  accentColor     String   @default("#C4A35A")
+  defaultLocale   String   @default("en")
+  retentionHours  Int      @default(24)
+  welcomeMessage  String?
+  privacyNotice   String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  store           Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+}
+
+model CustomerConsent {
+  id           String     @id @default(uuid()) @db.Uuid
+  storeId      String     @db.Uuid
+  sessionId    String
+  locale       String     @default("en")
+  acceptedAt   DateTime   @default(now())
+  ipHash       String?
+  userAgent    String?
+  recordedById String?    @db.Uuid
+  store        Store      @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  recordedBy   User?      @relation("ConsentStaff", fields: [recordedById], references: [id], onDelete: SetNull)
+  jobs         TryOnJob[]
+
+  @@index([storeId, sessionId])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  actorId    String?  @db.Uuid
+  action     String
+  entityType String
+  entityId   String?
+  meta       Json?
+  createdAt  DateTime @default(now())
+  actor      User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+}

@@ -1,0 +1,24 @@
+{
+  "name": "saree-tryon-saas",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Multi-tenant AI Virtual Saree Try-On SaaS",
+  "workspaces": [
+    "apps/web"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=apps/web",
+    "build": "npm run build --workspace=apps/web",
+    "lint": "npm run lint --workspace=apps/web",
+    "typecheck": "npm run typecheck --workspace=apps/web",
+    "test": "npm run test --workspace=apps/web",
+    "db:generate": "npm run db:generate --workspace=apps/web",
+    "db:migrate": "npm run db:migrate --workspace=apps/web",
+    "db:seed": "npm run db:seed --workspace=apps/web",
+    "ai:dev": "cd apps/ai-worker && .venv/bin/uvicorn main:app --reload --host 0.0.0.0 --port 8000",
+    "ai:test": "cd apps/ai-worker && .venv/bin/pytest -q"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

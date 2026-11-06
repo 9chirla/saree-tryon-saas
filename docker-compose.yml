@@ -1,0 +1,68 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: saree
+      POSTGRES_PASSWORD: saree_dev
+      POSTGRES_DB: saree_tryon
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U saree -d saree_tryon"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  ai-worker:
+    build: ./apps/ai-worker
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      STORAGE_DIR: /data/uploads
+      DEMO_WATERMARK: "DEMO — not real AI"
+    volumes:
+      - upload_data:/data/uploads
+    depends_on:
+      - redis
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://saree:saree_dev@postgres:5432/saree_tryon
+      REDIS_URL: redis://redis:6379
+      AI_WORKER_URL: http://ai-worker:8000
+      UPLOAD_DIR: /data/uploads
+    volumes:
+      - upload_data:/data/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ai-worker:
+        condition: service_started
+
+volumes:
+  postgres_data:
+  upload_data:

@@ -1,0 +1,84 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --burgundy: #6b1e2e;
+  --burgundy-deep: #4a1420;
+  --gold: #c4a35a;
+  --gold-soft: #e8d5a3;
+  --cream: #f7f1e8;
+  --ink: #1c1412;
+  --muted: #6e5c55;
+  --surface: rgba(255, 252, 247, 0.82);
+  --background: #f3ebe1;
+  --foreground: #1c1412;
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  min-height: 100vh;
+}
+
+.kiosk-shell {
+  min-height: 100dvh;
+  background:
+    radial-gradient(ellipse at 20% 0%, rgba(196, 163, 90, 0.28), transparent 55%),
+    radial-gradient(ellipse at 90% 10%, rgba(107, 30, 46, 0.18), transparent 45%),
+    linear-gradient(165deg, #f8f2ea 0%, #efe3d4 45%, #e8d7c8 100%);
+}
+
+.btn-primary {
+  @apply inline-flex items-center justify-center rounded-xl px-6 py-4 text-lg font-semibold text-[#F7F1E8] transition active:scale-[0.98] disabled:opacity-50;
+  background: linear-gradient(135deg, var(--burgundy), var(--burgundy-deep));
+  box-shadow: 0 10px 30px rgba(107, 30, 46, 0.25);
+}
+
+.btn-secondary {
+  @apply inline-flex items-center justify-center rounded-xl border px-6 py-4 text-lg font-semibold transition active:scale-[0.98];
+  border-color: rgba(107, 30, 46, 0.25);
+  color: var(--burgundy);
+  background: rgba(255, 252, 247, 0.7);
+}
+
+.panel {
+  @apply rounded-3xl p-6 md:p-8;
+  background: var(--surface);
+  border: 1px solid rgba(107, 30, 46, 0.08);
+  backdrop-filter: blur(10px);
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.96);
+    opacity: 0.7;
+  }
+  70% {
+    transform: scale(1.04);
+    opacity: 0.15;
+  }
+  100% {
+    transform: scale(0.96);
+    opacity: 0.7;
+  }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.55s ease-out both;
+}
+
+.animate-pulse-ring {
+  animation: pulse-ring 2.2s ease-in-out infinite;
+}
