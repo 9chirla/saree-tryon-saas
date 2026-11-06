@@ -23,7 +23,11 @@ export async function POST(req: Request) {
       };
     };
 
-    const providerEventId = event.id ?? `${event.event}:${Date.now()}`;
+    // Require stable provider event id — Date.now() fallbacks break idempotency on retries.
+    if (!event.id) {
+      return jsonError("Missing Razorpay event id", 400);
+    }
+    const providerEventId = event.id;
     const existing = await prisma.billingEvent.findUnique({
       where: { provider_providerEventId: { provider: "razorpay", providerEventId } },
     });
@@ -65,28 +69,40 @@ export async function POST(req: Request) {
             },
           });
           const store = sub.organisation.stores[0];
+          const grantReason = `razorpay:${event.event}:${providerEventId}`;
           if (store) {
-            await prisma.creditTransaction.create({
-              data: {
-                storeId: store.id,
-                organisationId: sub.organisationId,
-                type: "GRANT",
-                amount: sub.plan.monthlyCredits,
-                balanceAfter: sub.plan.monthlyCredits,
-                reason: `razorpay:${event.event}`,
-              },
+            const priorGrant = await prisma.creditTransaction.findFirst({
+              where: { organisationId: sub.organisationId, reason: grantReason },
             });
+            if (!priorGrant) {
+              await prisma.creditTransaction.create({
+                data: {
+                  storeId: store.id,
+                  organisationId: sub.organisationId,
+                  type: "GRANT",
+                  amount: sub.plan.monthlyCredits,
+                  balanceAfter: sub.plan.monthlyCredits,
+                  reason: grantReason,
+                },
+              });
+            }
           }
-          if (event.payload.payment?.entity?.status === "captured" || event.payload.payment?.entity) {
-            // Only record SUCCEEDED when provider entity indicates success — never fabricate.
-            const payStatus = event.payload.payment.entity.status;
-            if (!payStatus || payStatus === "captured" || payStatus === "authorized") {
+          const payEntity = event.payload.payment?.entity;
+          const payStatus = payEntity?.status;
+          if (
+            payEntity &&
+            (payStatus === "captured" || payStatus === "authorized")
+          ) {
+            const priorPay = await prisma.payment.findFirst({
+              where: { providerPaymentId: payEntity.id },
+            });
+            if (!priorPay) {
               await prisma.payment.create({
                 data: {
                   subscriptionId: sub.id,
-                  amountPaise: event.payload.payment.entity.amount,
+                  amountPaise: payEntity.amount,
                   status: "SUCCEEDED",
-                  providerPaymentId: event.payload.payment.entity.id,
+                  providerPaymentId: payEntity.id,
                 },
               });
             }
