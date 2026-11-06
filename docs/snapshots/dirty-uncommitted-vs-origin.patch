@@ -1,0 +1,543 @@
+diff --git a/README.md b/README.md
+index 3e9530b..4805d52 100644
+--- a/README.md
++++ b/README.md
+@@ -97,4 +97,4 @@ npm run typecheck --workspace=apps/web
+ 
+ ## Brand
+ 
+-Royal purple `#5A2D81` · gold `#D4AF37` · cream `#FCF8F0` · logo in `apps/web/public/brand/`
++Deep plum `#42105C` · electric teal `#00BFCB` · gold `#D99A22` · ivory `#FFF9EF` · logo in `apps/web/public/brand/`
+diff --git a/apps/web/package.json b/apps/web/package.json
+index 83c9425..afedf64 100644
+--- a/apps/web/package.json
++++ b/apps/web/package.json
+@@ -9,6 +9,7 @@
+     "lint": "next lint",
+     "typecheck": "tsc --noEmit",
+     "test": "vitest run",
++    "test:e2e": "playwright test",
+     "db:generate": "prisma generate",
+     "db:migrate": "prisma migrate deploy",
+     "db:seed": "tsx prisma/seed.ts",
+@@ -37,6 +38,7 @@
+   },
+   "devDependencies": {
+     "@eslint/eslintrc": "^3",
++    "@playwright/test": "^1.51.1",
+     "@testing-library/react": "^16.3.3",
+     "@types/bcryptjs": "^2.4.6",
+     "@types/node": "^20",
+diff --git a/apps/web/prisma/schema.prisma b/apps/web/prisma/schema.prisma
+index acc5e1c..689c2dc 100644
+--- a/apps/web/prisma/schema.prisma
++++ b/apps/web/prisma/schema.prisma
+@@ -254,8 +254,8 @@ model StoreSettings {
+   id              String   @id @default(uuid()) @db.Uuid
+   storeId         String   @unique @db.Uuid
+   logoPath        String?
+-  primaryColor    String   @default("#5A2D81")
+-  accentColor     String   @default("#D4AF37")
++  primaryColor    String   @default("#42105C")
++  accentColor     String   @default("#D99A22")
+   defaultLocale   String   @default("en")
+   retentionHours  Int      @default(24)
+   welcomeMessage  String?
+diff --git a/apps/web/prisma/seed.ts b/apps/web/prisma/seed.ts
+index 47ea0bb..2d51f82 100644
+--- a/apps/web/prisma/seed.ts
++++ b/apps/web/prisma/seed.ts
+@@ -112,8 +112,8 @@ async function main() {
+       slug: "demo-silk-house",
+       settings: {
+         create: {
+-          primaryColor: "#5A2D81",
+-          accentColor: "#D4AF37",
++          primaryColor: "#42105C",
++          accentColor: "#D99A22",
+           defaultLocale: "en",
+           retentionHours: 24,
+           welcomeMessage: "Welcome to Demo Silk House. Try our sarees virtually — free in-store demo.",
+diff --git a/apps/web/src/app/api/billing/checkout/route.ts b/apps/web/src/app/api/billing/checkout/route.ts
+index bd0e443..1c7302a 100644
+--- a/apps/web/src/app/api/billing/checkout/route.ts
++++ b/apps/web/src/app/api/billing/checkout/route.ts
+@@ -54,7 +54,7 @@ export async function POST(req: Request) {
+             name: "Trail9 Saree Try-On",
+             description: `${plan.name} plan`,
+             prefill: { email: user.email, name: user.name },
+-            theme: { color: "#5A2D81" },
++            theme: { color: "#42105C" },
+           }
+         : null,
+       plan: {
+diff --git a/apps/web/src/app/api/billing/webhook/razorpay/route.ts b/apps/web/src/app/api/billing/webhook/razorpay/route.ts
+index 2fd101e..853dd20 100644
+--- a/apps/web/src/app/api/billing/webhook/razorpay/route.ts
++++ b/apps/web/src/app/api/billing/webhook/razorpay/route.ts
+@@ -23,7 +23,11 @@ export async function POST(req: Request) {
+       };
+     };
+ 
+-    const providerEventId = event.id ?? `${event.event}:${Date.now()}`;
++    // Require stable provider event id — Date.now() fallbacks break idempotency on retries.
++    if (!event.id) {
++      return jsonError("Missing Razorpay event id", 400);
++    }
++    const providerEventId = event.id;
+     const existing = await prisma.billingEvent.findUnique({
+       where: { provider_providerEventId: { provider: "razorpay", providerEventId } },
+     });
+@@ -65,28 +69,40 @@ export async function POST(req: Request) {
+             },
+           });
+           const store = sub.organisation.stores[0];
++          const grantReason = `razorpay:${event.event}:${providerEventId}`;
+           if (store) {
+-            await prisma.creditTransaction.create({
+-              data: {
+-                storeId: store.id,
+-                organisationId: sub.organisationId,
+-                type: "GRANT",
+-                amount: sub.plan.monthlyCredits,
+-                balanceAfter: sub.plan.monthlyCredits,
+-                reason: `razorpay:${event.event}`,
+-              },
++            const priorGrant = await prisma.creditTransaction.findFirst({
++              where: { organisationId: sub.organisationId, reason: grantReason },
+             });
++            if (!priorGrant) {
++              await prisma.creditTransaction.create({
++                data: {
++                  storeId: store.id,
++                  organisationId: sub.organisationId,
++                  type: "GRANT",
++                  amount: sub.plan.monthlyCredits,
++                  balanceAfter: sub.plan.monthlyCredits,
++                  reason: grantReason,
++                },
++              });
++            }
+           }
+-          if (event.payload.payment?.entity?.status === "captured" || event.payload.payment?.entity) {
+-            // Only record SUCCEEDED when provider entity indicates success — never fabricate.
+-            const payStatus = event.payload.payment.entity.status;
+-            if (!payStatus || payStatus === "captured" || payStatus === "authorized") {
++          const payEntity = event.payload.payment?.entity;
++          const payStatus = payEntity?.status;
++          if (
++            payEntity &&
++            (payStatus === "captured" || payStatus === "authorized")
++          ) {
++            const priorPay = await prisma.payment.findFirst({
++              where: { providerPaymentId: payEntity.id },
++            });
++            if (!priorPay) {
+               await prisma.payment.create({
+                 data: {
+                   subscriptionId: sub.id,
+-                  amountPaise: event.payload.payment.entity.amount,
++                  amountPaise: payEntity.amount,
+                   status: "SUCCEEDED",
+-                  providerPaymentId: event.payload.payment.entity.id,
++                  providerPaymentId: payEntity.id,
+                 },
+               });
+             }
+diff --git a/apps/web/src/app/dashboard/settings/page.tsx b/apps/web/src/app/dashboard/settings/page.tsx
+index bcfd186..65d0783 100644
+--- a/apps/web/src/app/dashboard/settings/page.tsx
++++ b/apps/web/src/app/dashboard/settings/page.tsx
+@@ -8,8 +8,8 @@ export default function SettingsPage() {
+   const [form, setForm] = useState({
+     welcomeMessage: "",
+     privacyNotice: "",
+-    primaryColor: "#5A2D81",
+-    accentColor: "#D4AF37",
++    primaryColor: "#42105C",
++    accentColor: "#D99A22",
+     defaultLocale: "en",
+     retentionHours: 24,
+   });
+diff --git a/apps/web/src/app/globals.css b/apps/web/src/app/globals.css
+index 82e1db9..d47a5fc 100644
+--- a/apps/web/src/app/globals.css
++++ b/apps/web/src/app/globals.css
+@@ -3,24 +3,30 @@
+ @tailwind utilities;
+ 
+ :root {
+-  /* Trail9 brand — royal purple + metallic gold on warm cream */
+-  --brand-purple: #5a2d81;
+-  --brand-purple-deep: #3d1a5c;
+-  --brand-purple-soft: #7a4aa0;
+-  --gold: #d4af37;
+-  --gold-deep: #b8860b;
+-  --gold-soft: #f0d78c;
+-  --cream: #fcf8f0;
+-  --cream-deep: #f3ead9;
+-  --ink: #2a1a3a;
++  /* Trail9 founder brief palette */
++  --brand-plum: #42105c;
++  --brand-plum-deep: #2e0a42;
++  --brand-plum-soft: #5c1a7a;
++  --ai-teal: #00bfcb;
++  --ai-teal-soft: #33ccd5;
++  --gold: #d99a22;
++  --gold-deep: #b87f1a;
++  --gold-soft: #e8c36a;
++  --ivory: #fff9ef;
++  --cream: #fff9ef;
++  --cream-deep: #f5ebdc;
++  --ink: #2a1238;
+   --muted: #6b5a7a;
+-  --surface: rgba(252, 248, 240, 0.88);
+-  --background: #fcf8f0;
+-  --foreground: #2a1a3a;
++  --surface: rgba(255, 249, 239, 0.9);
++  --background: #fff9ef;
++  --foreground: #2a1238;
+ 
+-  /* Legacy aliases used across components */
+-  --burgundy: var(--brand-purple);
+-  --burgundy-deep: var(--brand-purple-deep);
++  /* Aliases used across components */
++  --brand-purple: var(--brand-plum);
++  --brand-purple-deep: var(--brand-plum-deep);
++  --brand-purple-soft: var(--brand-plum-soft);
++  --burgundy: var(--brand-plum);
++  --burgundy-deep: var(--brand-plum-deep);
+ }
+ 
+ body {
+@@ -32,48 +38,55 @@ body {
+ .kiosk-shell {
+   min-height: 100dvh;
+   background:
+-    radial-gradient(ellipse at 12% 0%, rgba(212, 175, 55, 0.22), transparent 50%),
+-    radial-gradient(ellipse at 88% 8%, rgba(90, 45, 129, 0.16), transparent 48%),
+-    linear-gradient(165deg, #fcf8f0 0%, #f7f0e4 48%, #efe4d2 100%);
++    radial-gradient(ellipse at 12% 0%, rgba(217, 154, 34, 0.2), transparent 50%),
++    radial-gradient(ellipse at 88% 8%, rgba(66, 16, 92, 0.14), transparent 48%),
++    radial-gradient(ellipse at 50% 100%, rgba(0, 191, 203, 0.08), transparent 55%),
++    linear-gradient(165deg, #fff9ef 0%, #f7efe3 48%, #efe4d2 100%);
+ }
+ 
+ .btn-primary {
+-  @apply inline-flex items-center justify-center rounded-xl px-6 py-4 text-lg font-semibold text-[#FCF8F0] transition active:scale-[0.98] disabled:opacity-50;
+-  background: linear-gradient(135deg, var(--brand-purple), var(--brand-purple-deep));
+-  box-shadow: 0 10px 28px rgba(90, 45, 129, 0.28);
++  @apply inline-flex items-center justify-center rounded-xl px-6 py-4 text-lg font-semibold text-[#FFF9EF] transition active:scale-[0.98] disabled:opacity-50;
++  background: linear-gradient(135deg, var(--brand-plum), var(--brand-plum-deep));
++  box-shadow: 0 10px 28px rgba(66, 16, 92, 0.28);
+ }
+ 
+ .btn-primary:hover {
+-  background: linear-gradient(135deg, var(--brand-purple-soft), var(--brand-purple));
++  background: linear-gradient(135deg, var(--brand-plum-soft), var(--brand-plum));
+ }
+ 
+ .btn-secondary {
+   @apply inline-flex items-center justify-center rounded-xl border px-6 py-4 text-lg font-semibold transition active:scale-[0.98];
+-  border-color: rgba(212, 175, 55, 0.55);
+-  color: var(--brand-purple);
+-  background: rgba(252, 248, 240, 0.85);
++  border-color: rgba(217, 154, 34, 0.55);
++  color: var(--brand-plum);
++  background: rgba(255, 249, 239, 0.85);
+ }
+ 
+ .btn-secondary:hover {
+   border-color: var(--gold);
+-  background: rgba(240, 215, 140, 0.25);
++  background: rgba(232, 195, 106, 0.22);
++}
++
++.btn-ai {
++  @apply inline-flex items-center justify-center rounded-xl px-6 py-4 text-lg font-semibold text-[#042428] transition;
++  background: linear-gradient(135deg, var(--ai-teal), var(--ai-teal-soft));
++  box-shadow: 0 8px 24px rgba(0, 191, 203, 0.28);
+ }
+ 
+ .panel {
+   @apply rounded-3xl p-6 md:p-8;
+   background: var(--surface);
+-  border: 1px solid rgba(90, 45, 129, 0.1);
++  border: 1px solid rgba(66, 16, 92, 0.1);
+   box-shadow:
+     0 1px 0 rgba(255, 255, 255, 0.65) inset,
+-    0 12px 40px rgba(61, 26, 92, 0.08);
++    0 12px 40px rgba(46, 10, 66, 0.08);
+   backdrop-filter: blur(12px);
+ }
+ 
+ .panel-gold {
+-  border-color: rgba(212, 175, 55, 0.45);
++  border-color: rgba(217, 154, 34, 0.45);
+   box-shadow:
+     0 1px 0 rgba(255, 255, 255, 0.7) inset,
+-    0 12px 40px rgba(184, 134, 11, 0.1);
++    0 12px 40px rgba(184, 127, 26, 0.1);
+ }
+ 
+ .viewfinder-frame {
+@@ -108,10 +121,14 @@ body {
+   letter-spacing: 0.14em;
+   text-transform: uppercase;
+   font-size: 0.7rem;
+-  color: var(--brand-purple);
++  color: var(--brand-plum);
+   font-weight: 600;
+ }
+ 
++.ai-accent {
++  color: var(--ai-teal);
++}
++
+ @keyframes fade-up {
+   from {
+     opacity: 0;
+diff --git a/apps/web/src/app/login/page.tsx b/apps/web/src/app/login/page.tsx
+index f51fb7d..a8a77fa 100644
+--- a/apps/web/src/app/login/page.tsx
++++ b/apps/web/src/app/login/page.tsx
+@@ -38,9 +38,9 @@ export default function LoginPage() {
+       <form onSubmit={onSubmit} className="panel panel-gold w-full max-w-md animate-fade-up">
+         <BrandLogo size="md" />
+         <div className="mt-4 flex items-center gap-3">
+-          <span className="h-px flex-1 bg-[rgba(212,175,55,0.45)]" />
++          <span className="h-px flex-1 bg-[rgba(217,154,34,0.45)]" />
+           <p className="brand-tagline shrink-0">Try · Explore · Choose</p>
+-          <span className="h-px flex-1 bg-[rgba(212,175,55,0.45)]" />
++          <span className="h-px flex-1 bg-[rgba(217,154,34,0.45)]" />
+         </div>
+         <h1 className="mt-3 font-[family-name:var(--font-display)] text-xl italic text-[var(--brand-purple)]">
+           Sign in
+@@ -48,7 +48,7 @@ export default function LoginPage() {
+         <label className="mt-6 block text-sm font-medium text-[var(--muted)]">
+           Email
+           <input
+-            className="mt-1 w-full rounded-xl border border-[rgba(90,45,129,0.2)] bg-white/80 px-4 py-3 text-[var(--ink)] outline-none focus:border-[var(--gold)]"
++            className="mt-1 w-full rounded-xl border border-[rgba(66,16,92,0.2)] bg-white/80 px-4 py-3 text-[var(--ink)] outline-none focus:border-[var(--gold)]"
+             value={email}
+             onChange={(e) => setEmail(e.target.value)}
+             type="email"
+@@ -58,7 +58,7 @@ export default function LoginPage() {
+         <label className="mt-4 block text-sm font-medium text-[var(--muted)]">
+           Password
+           <input
+-            className="mt-1 w-full rounded-xl border border-[rgba(90,45,129,0.2)] bg-white/80 px-4 py-3 text-[var(--ink)] outline-none focus:border-[var(--gold)]"
++            className="mt-1 w-full rounded-xl border border-[rgba(66,16,92,0.2)] bg-white/80 px-4 py-3 text-[var(--ink)] outline-none focus:border-[var(--gold)]"
+             value={password}
+             onChange={(e) => setPassword(e.target.value)}
+             type="password"
+diff --git a/apps/web/src/app/page.tsx b/apps/web/src/app/page.tsx
+index 2a3092d..2b10887 100644
+--- a/apps/web/src/app/page.tsx
++++ b/apps/web/src/app/page.tsx
+@@ -12,8 +12,9 @@ export default function HomePage() {
+         }}
+       />
+       {/* Gold accent wash */}
+-      <div className="pointer-events-none absolute -right-24 top-0 h-[70vh] w-[50vw] rounded-full bg-[radial-gradient(circle,rgba(212,175,55,0.18),transparent_65%)]" />
+-      <div className="pointer-events-none absolute -left-16 bottom-0 h-[50vh] w-[40vw] rounded-full bg-[radial-gradient(circle,rgba(90,45,129,0.12),transparent_70%)]" />
++      <div className="pointer-events-none absolute -right-24 top-0 h-[70vh] w-[50vw] rounded-full bg-[radial-gradient(circle,rgba(217,154,34,0.18),transparent_65%)]" />
++      <div className="pointer-events-none absolute -left-16 bottom-0 h-[50vh] w-[40vw] rounded-full bg-[radial-gradient(circle,rgba(66,16,92,0.12),transparent_70%)]" />
++      <div className="pointer-events-none absolute bottom-10 right-10 h-40 w-40 rounded-full bg-[radial-gradient(circle,rgba(0,191,203,0.16),transparent_70%)]" />
+ 
+       <div className="relative mx-auto grid min-h-dvh max-w-6xl items-center gap-10 px-6 py-14 lg:grid-cols-[1.15fr_0.85fr]">
+         <section className="animate-fade-up">
+@@ -43,7 +44,7 @@ export default function HomePage() {
+         </section>
+ 
+         <aside className="animate-fade-up panel relative hidden overflow-hidden lg:block" style={{ animationDelay: "120ms" }}>
+-          <div className="viewfinder-frame absolute inset-4 rounded-2xl border border-[rgba(212,175,55,0.35)] bg-gradient-to-br from-[rgba(90,45,129,0.08)] via-transparent to-[rgba(212,175,55,0.12)]" />
++          <div className="viewfinder-frame absolute inset-4 rounded-2xl border border-[rgba(217,154,34,0.35)] bg-gradient-to-br from-[rgba(66,16,92,0.08)] via-transparent to-[rgba(0,191,203,0.1)]" />
+           <div className="relative z-10 flex min-h-[420px] flex-col justify-between p-2">
+             <p className="font-[family-name:var(--font-display)] text-2xl text-[var(--brand-purple)]">
+               In-store kiosk experience
+diff --git a/apps/web/src/app/register/page.tsx b/apps/web/src/app/register/page.tsx
+index f45d8a9..6eb2a95 100644
+--- a/apps/web/src/app/register/page.tsx
++++ b/apps/web/src/app/register/page.tsx
+@@ -56,7 +56,7 @@ export default function RegisterPage() {
+           <label key={key} className="mt-4 block text-sm font-medium text-[var(--muted)]">
+             {label}
+             <input
+-              className="mt-1 w-full rounded-xl border border-[rgba(90,45,129,0.2)] bg-white/80 px-4 py-3 outline-none focus:border-[var(--gold)]"
++              className="mt-1 w-full rounded-xl border border-[rgba(66,16,92,0.2)] bg-white/80 px-4 py-3 outline-none focus:border-[var(--gold)]"
+               type={key === "password" ? "password" : key === "email" ? "email" : "text"}
+               required
+               value={form[key]}
+diff --git a/apps/web/src/components/AppNav.tsx b/apps/web/src/components/AppNav.tsx
+index e6e5d60..8c92f94 100644
+--- a/apps/web/src/components/AppNav.tsx
++++ b/apps/web/src/components/AppNav.tsx
+@@ -26,7 +26,7 @@ export function AppNav({
+           <Link
+             key={l.href}
+             href={l.href}
+-            className="rounded-lg px-3 py-2 text-[var(--brand-purple)] hover:bg-[rgba(212,175,55,0.15)]"
++            className="rounded-lg px-3 py-2 text-[var(--brand-purple)] hover:bg-[rgba(217,154,34,0.15)]"
+           >
+             {l.label}
+           </Link>
+diff --git a/apps/web/src/components/BrandLogo.tsx b/apps/web/src/components/BrandLogo.tsx
+index 66a422e..bb2278b 100644
+--- a/apps/web/src/components/BrandLogo.tsx
++++ b/apps/web/src/components/BrandLogo.tsx
+@@ -38,7 +38,7 @@ export function BrandLogo({
+     />
+   );
+   const shell = cn(
+-    "inline-block overflow-hidden rounded-2xl bg-[#FCF8F0]/90 shadow-[0_8px_30px_rgba(90,45,129,0.08)] ring-1 ring-[rgba(212,175,55,0.35)]",
++    "inline-block overflow-hidden rounded-2xl bg-[#FFF9EF]/90 shadow-[0_8px_30px_rgba(66,16,92,0.08)] ring-1 ring-[rgba(217,154,34,0.35)]",
+     className,
+   );
+   if (href === null) {
+diff --git a/apps/web/src/components/kiosk/KioskApp.tsx b/apps/web/src/components/kiosk/KioskApp.tsx
+index 88ac136..4e73439 100644
+--- a/apps/web/src/components/kiosk/KioskApp.tsx
++++ b/apps/web/src/components/kiosk/KioskApp.tsx
+@@ -238,7 +238,7 @@ export function KioskApp({ storeSlug }: { storeSlug: string }) {
+     };
+   }, [jobId, step, storeSlug]);
+ 
+-  const primary = data?.store.settings?.primaryColor ?? "#5A2D81";
++  const primary = data?.store.settings?.primaryColor ?? "#42105C";
+   const filtered =
+     data?.sarees.filter((s) => {
+       if (!filter) return true;
+@@ -288,8 +288,8 @@ export function KioskApp({ storeSlug }: { storeSlug: string }) {
+         {step === "welcome" && (
+           <section className="panel panel-gold animate-fade-up text-center">
+             <div className="relative mx-auto mb-6 flex h-44 w-44 items-center justify-center">
+-              <div className="absolute inset-0 animate-pulse-ring rounded-full bg-[rgba(90,45,129,0.12)]" />
+-              <div className="absolute inset-3 rounded-full border border-[rgba(212,175,55,0.45)]" />
++              <div className="absolute inset-0 animate-pulse-ring rounded-full bg-[rgba(66,16,92,0.12)]" />
++              <div className="absolute inset-3 rounded-full border border-[rgba(217,154,34,0.45)]" />
+               <BrandLogo size="sm" href={null} className="relative z-10 px-3" />
+             </div>
+             <p className="brand-tagline">Try · Explore · Choose</p>
+@@ -470,9 +470,11 @@ export function KioskApp({ storeSlug }: { storeSlug: string }) {
+ 
+         {step === "processing" && (
+           <section className="panel animate-fade-up text-center">
+-            <div className="mx-auto h-16 w-16 animate-pulse-ring rounded-full border-4 border-[var(--burgundy)] border-t-transparent" />
++            <div className="mx-auto h-16 w-16 animate-pulse-ring rounded-full border-4 border-[var(--ai-teal)] border-t-transparent" />
+             <p className="mt-6 text-xl">{t(locale, "processing")}</p>
+-            <p className="mt-2 font-mono text-sm text-[var(--muted)]">Status: {jobStatus}</p>
++            <p className="mt-2 font-mono text-sm text-[var(--muted)]">
++              Status: <span className="ai-accent">{jobStatus}</span>
++            </p>
+           </section>
+         )}
+ 
+diff --git a/apps/web/src/lib/tryon/demo-provider.ts b/apps/web/src/lib/tryon/demo-provider.ts
+index 4a21356..e81b3e3 100644
+--- a/apps/web/src/lib/tryon/demo-provider.ts
++++ b/apps/web/src/lib/tryon/demo-provider.ts
+@@ -78,11 +78,11 @@ export class DemoTryOnProvider implements VirtualTryOnProvider {
+ 
+       const watermarkSvg = Buffer.from(`
+         <svg width="${width}" height="${height}">
+-          <rect x="0" y="0" width="${width}" height="56" fill="rgba(90,45,129,0.88)"/>
+-          <text x="20" y="36" font-family="Arial, sans-serif" font-size="22" fill="#F0D78C" font-weight="700">
++          <rect x="0" y="0" width="${width}" height="56" fill="rgba(66,16,92,0.9)"/>
++          <text x="20" y="36" font-family="Arial, sans-serif" font-size="22" fill="#E8C36A" font-weight="700">
+             DEMO — not real AI try-on
+           </text>
+-          <text x="20" y="${height - 24}" font-family="Arial, sans-serif" font-size="16" fill="#5A2D81">
++          <text x="20" y="${height - 24}" font-family="Arial, sans-serif" font-size="16" fill="#00BFCB">
+             Trail9 sample composite · Your Saree. Virtually.
+           </text>
+         </svg>
+diff --git a/package-lock.json b/package-lock.json
+index 6032ee5..e282f61 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -36,6 +36,7 @@
+       },
+       "devDependencies": {
+         "@eslint/eslintrc": "^3",
++        "@playwright/test": "^1.51.1",
+         "@testing-library/react": "^16.3.3",
+         "@types/bcryptjs": "^2.4.6",
+         "@types/node": "^20",
+@@ -6574,6 +6575,22 @@
+         "node": ">=18"
+       }
+     },
++    "node_modules/@playwright/test": {
++      "version": "1.51.1",
++      "resolved": "https://registry.npmjs.org/@playwright/test/-/test-1.51.1.tgz",
++      "integrity": "sha512-nM+kEaTSAoVlXmMPH10017vn3FSiFqr/bh4fKg9vmAdMfd9SDqRZNvPSiAHADc/itWak+qPvMPZQOPwCBW7k7Q==",
++      "dev": true,
++      "license": "Apache-2.0",
++      "dependencies": {
++        "playwright": "1.51.1"
++      },
++      "bin": {
++        "playwright": "cli.js"
++      },
++      "engines": {
++        "node": ">=18"
++      }
++    },
+     "node_modules/@prisma/client": {
+       "version": "6.19.3",
+       "resolved": "https://registry.npmjs.org/@prisma/client/-/client-6.19.3.tgz",
+@@ -7070,6 +7087,53 @@
+       "dev": true,
+       "license": "MIT"
+     },
++    "node_modules/playwright": {
++      "version": "1.51.1",
++      "resolved": "https://registry.npmjs.org/playwright/-/playwright-1.51.1.tgz",
++      "integrity": "sha512-kkx+MB2KQRkyxjYPc3a0wLZZoDczmppyGJIvQ43l+aZihkaVvmu/21kiyaHeHjiFxjxNNFnUncKmcGIyOojsaw==",
++      "dev": true,
++      "license": "Apache-2.0",
++      "dependencies": {
++        "playwright-core": "1.51.1"
++      },
++      "bin": {
++        "playwright": "cli.js"
++      },
++      "engines": {
++        "node": ">=18"
++      },
++      "optionalDependencies": {
++        "fsevents": "2.3.2"
++      }
++    },
++    "node_modules/playwright-core": {
++      "version": "1.51.1",
++      "resolved": "https://registry.npmjs.org/playwright-core/-/playwright-core-1.51.1.tgz",
++      "integrity": "sha512-/crRMj8+j/Nq5s8QcvegseuyeZPxpQCZb6HNk3Sos3BlZyAknRjoyJPFWkpNn8v0+P3WiwqFF8P+zQo4eqiNuw==",
++      "dev": true,
++      "license": "Apache-2.0",
++      "bin": {
++        "playwright-core": "cli.js"
++      },
++      "engines": {
++        "node": ">=18"
++      }
++    },
++    "node_modules/playwright/node_modules/fsevents": {
++      "version": "2.3.2",
++      "resolved": "https://registry.npmjs.org/fsevents/-/fsevents-2.3.2.tgz",
++      "integrity": "sha512-xiqMQR4xAeHTuB9uWm+fFRcIOgKBMiOBP+eXiyT7jsgVCq1bkVygt00oASowB7EdtpOHaaPgKt812P9ab+DDKA==",
++      "dev": true,
++      "hasInstallScript": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "darwin"
++      ],
++      "engines": {
++        "node": "^8.16.0 || ^10.6.0 || >=11.0.0"
++      }
++    },
+     "node_modules/prisma": {
+       "version": "6.19.3",
+       "resolved": "https://registry.npmjs.org/prisma/-/prisma-6.19.3.tgz",
