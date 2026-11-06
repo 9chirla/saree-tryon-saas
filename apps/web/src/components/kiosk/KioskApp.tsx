@@ -286,9 +286,14 @@ export function KioskApp({ storeSlug }: { storeSlug: string }) {
         )}
 
         {step === "welcome" && (
-          <section className="panel animate-fade-up text-center">
-            <div className="mx-auto mb-6 h-40 w-40 rounded-full animate-pulse-ring bg-[rgba(107,30,46,0.12)]" />
-            <p className="text-lg text-[var(--muted)]">
+          <section className="panel panel-gold animate-fade-up text-center">
+            <div className="relative mx-auto mb-6 flex h-44 w-44 items-center justify-center">
+              <div className="absolute inset-0 animate-pulse-ring rounded-full bg-[rgba(90,45,129,0.12)]" />
+              <div className="absolute inset-3 rounded-full border border-[rgba(212,175,55,0.45)]" />
+              <BrandLogo size="sm" href={null} className="relative z-10 px-3" />
+            </div>
+            <p className="brand-tagline">Try · Explore · Choose</p>
+            <p className="mt-4 text-lg text-[var(--muted)]">
               {data?.store.settings?.welcomeMessage || t(locale, "instructions")}
             </p>
             <p className="mt-3 text-sm text-[var(--muted)]">

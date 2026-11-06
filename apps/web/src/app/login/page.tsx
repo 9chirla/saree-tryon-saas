@@ -35,10 +35,14 @@ export default function LoginPage() {
 
   return (
     <main className="kiosk-shell flex min-h-dvh items-center justify-center px-4">
-      <form onSubmit={onSubmit} className="panel w-full max-w-md animate-fade-up">
+      <form onSubmit={onSubmit} className="panel panel-gold w-full max-w-md animate-fade-up">
         <BrandLogo size="md" />
-        <p className="brand-tagline mt-3">Try · Explore · Choose</p>
-        <h1 className="mt-2 font-[family-name:var(--font-display)] text-xl italic text-[var(--brand-purple)]">
+        <div className="mt-4 flex items-center gap-3">
+          <span className="h-px flex-1 bg-[rgba(212,175,55,0.45)]" />
+          <p className="brand-tagline shrink-0">Try · Explore · Choose</p>
+          <span className="h-px flex-1 bg-[rgba(212,175,55,0.45)]" />
+        </div>
+        <h1 className="mt-3 font-[family-name:var(--font-display)] text-xl italic text-[var(--brand-purple)]">
           Sign in
         </h1>
         <label className="mt-6 block text-sm font-medium text-[var(--muted)]">

@@ -1,19 +1,39 @@
-# trAIl9 — AI Virtual Saree Try-On SaaS
+# Trail9 — Your Saree. Virtually.
 
-Multi-tenant commercial platform for Indian saree/textile retailers:
+Multi-tenant AI virtual saree try-on for Indian textile retailers.
 
-- **Kiosk** — consent → camera → saree select → real try-on job → labelled demo result
-- **Retailer dashboard** — catalogue, usage, branding, subscription
-- **Super-admin** — retailers, plans, AI providers, metrics
+**Try · Explore · Choose**
+
+- **Kiosk** — consent → camera → saree select → real try-on job → labelled demo result  
+- **Retailer dashboard** — catalogue, usage, branding, subscription  
+- **Super-admin** — retailers, plans, AI providers, metrics  
 
 Local demo runs with **DemoTryOnProvider** (no paid API keys). Results are clearly labelled `DEMO — not real AI try-on`.
 
+<p align="center">
+  <img src="apps/web/public/brand/trail9-logo.web.png" alt="Trail9 logo" width="420" />
+</p>
+
+## Screenshots
+
+| Landing | Login |
+| --- | --- |
+| ![Landing](docs/screenshots/01-landing.png) | ![Login](docs/screenshots/02-login.png) |
+
+| Kiosk welcome | Consent |
+| --- | --- |
+| ![Kiosk](docs/screenshots/03-kiosk-welcome.png) | ![Consent](docs/screenshots/04-kiosk-consent.png) |
+
+| Retailer dashboard |
+| --- |
+| ![Dashboard](docs/screenshots/05-retailer-dashboard.png) |
+
 ## Stack
 
-- Next.js 15 (App Router) + Prisma + PostgreSQL
-- FastAPI AI worker (`SelfHostedTryOnProvider` contract)
-- Docker Compose for Postgres / Redis / services
-- Razorpay Subscriptions (test) behind a payment abstraction
+- Next.js 15 (App Router) + Prisma + PostgreSQL  
+- FastAPI AI worker (`SelfHostedTryOnProvider` contract)  
+- Docker Compose for Postgres / Redis / services  
+- Razorpay Subscriptions (test) behind a payment abstraction  
 
 ## Quick start (local)
 
@@ -36,16 +56,6 @@ npm run dev          # http://localhost:3000
 npm run ai:dev       # http://localhost:8000
 ```
 
-From repo root with workspaces:
-
-```bash
-npm install --workspace=apps/web
-npm run db:migrate
-npm run db:seed
-npm run dev
-npm run ai:dev
-```
-
 ### Demo accounts (seeded)
 
 | Role | Email | Password |
@@ -63,7 +73,7 @@ See `.env.example`. Important:
 - Leave `RAZORPAY_*` empty for explicit **missing_credentials** billing mode (never fakes payment success)
 - Never put secrets in `NEXT_PUBLIC_*`
 
-## Docker (full stack)
+## Docker
 
 ```bash
 cp .env.example .env
@@ -79,24 +89,12 @@ npm run lint --workspace=apps/web
 npm run typecheck --workspace=apps/web
 ```
 
-## AI providers
+## Docs
 
-| Provider | Env | Behaviour |
-|----------|-----|-----------|
-| `demo` | none | Local labelled collage via Sharp |
-| `external` | `EXTERNAL_TRYON_URL`, `EXTERNAL_TRYON_API_KEY` | Async HTTP API; fails closed if unset |
-| `selfhosted` | `AI_WORKER_URL` | FastAPI stub (GPU model not included) |
+- [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) — production setup  
+- [`docs/AI_PROVIDER.md`](docs/AI_PROVIDER.md) — honest AI integration status  
+- [`docs/phase2-final-report.md`](docs/phase2-final-report.md) — pilot readiness  
 
-## Phase 2 (pilot hardening)
+## Brand
 
-- Route middleware for `/dashboard` and `/admin`
-- Multi-store active store selection (`x-store-id` / cookie)
-- Object storage abstraction (`local` | `s3`)
-- Customer image retention cleanup (`/api/internal/cleanup`)
-- Credit restore on qualifying failures; subscription grace / PAST_DUE
-- Razorpay Checkout.js when credentials exist
-- See `docs/DEPLOYMENT.md` and `docs/AI_PROVIDER.md`
-
-## Project path
-
-This workspace lives at `/agent/saree-tryon-saas`. Architecture / implementation / Phase 2 reports are also in the Project Agent Store `docs/`.
+Royal purple `#5A2D81` · gold `#D4AF37` · cream `#FCF8F0` · logo in `apps/web/public/brand/`

@@ -34,14 +34,22 @@ export function BrandLogo({
       width={dim.w}
       height={dim.h}
       priority={priority}
-      className={cn("h-auto w-full object-contain", className)}
+      className="h-auto w-full object-contain"
     />
   );
+  const shell = cn(
+    "inline-block overflow-hidden rounded-2xl bg-[#FCF8F0]/90 shadow-[0_8px_30px_rgba(90,45,129,0.08)] ring-1 ring-[rgba(212,175,55,0.35)]",
+    className,
+  );
   if (href === null) {
-    return <div className={cn("inline-block", className)} style={{ maxWidth: dim.w }}>{img}</div>;
+    return (
+      <div className={shell} style={{ maxWidth: dim.w }}>
+        {img}
+      </div>
+    );
   }
   return (
-    <Link href={href} className={cn("inline-block", className)} style={{ maxWidth: dim.w }} aria-label="Trail9 home">
+    <Link href={href} className={shell} style={{ maxWidth: dim.w }} aria-label="Trail9 home">
       {img}
     </Link>
   );
