@@ -97,4 +97,4 @@ npm run typecheck --workspace=apps/web
 
 ## Brand
 
-Royal purple `#5A2D81` · gold `#D4AF37` · cream `#FCF8F0` · logo in `apps/web/public/brand/`
+Deep plum `#42105C` · electric teal `#00BFCB` · gold `#D99A22` · ivory `#FFF9EF` · logo in `apps/web/public/brand/`

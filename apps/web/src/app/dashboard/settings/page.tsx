@@ -8,8 +8,8 @@ export default function SettingsPage() {
   const [form, setForm] = useState({
     welcomeMessage: "",
     privacyNotice: "",
-    primaryColor: "#5A2D81",
-    accentColor: "#D4AF37",
+    primaryColor: "#42105C",
+    accentColor: "#D99A22",
     defaultLocale: "en",
     retentionHours: 24,
   });

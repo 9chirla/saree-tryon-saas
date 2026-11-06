@@ -12,8 +12,9 @@ export default function HomePage() {
         }}
       />
       {/* Gold accent wash */}
-      <div className="pointer-events-none absolute -right-24 top-0 h-[70vh] w-[50vw] rounded-full bg-[radial-gradient(circle,rgba(212,175,55,0.18),transparent_65%)]" />
-      <div className="pointer-events-none absolute -left-16 bottom-0 h-[50vh] w-[40vw] rounded-full bg-[radial-gradient(circle,rgba(90,45,129,0.12),transparent_70%)]" />
+      <div className="pointer-events-none absolute -right-24 top-0 h-[70vh] w-[50vw] rounded-full bg-[radial-gradient(circle,rgba(217,154,34,0.18),transparent_65%)]" />
+      <div className="pointer-events-none absolute -left-16 bottom-0 h-[50vh] w-[40vw] rounded-full bg-[radial-gradient(circle,rgba(66,16,92,0.12),transparent_70%)]" />
+      <div className="pointer-events-none absolute bottom-10 right-10 h-40 w-40 rounded-full bg-[radial-gradient(circle,rgba(0,191,203,0.16),transparent_70%)]" />
 
       <div className="relative mx-auto grid min-h-dvh max-w-6xl items-center gap-10 px-6 py-14 lg:grid-cols-[1.15fr_0.85fr]">
         <section className="animate-fade-up">
@@ -43,7 +44,7 @@ export default function HomePage() {
         </section>
 
         <aside className="animate-fade-up panel relative hidden overflow-hidden lg:block" style={{ animationDelay: "120ms" }}>
-          <div className="viewfinder-frame absolute inset-4 rounded-2xl border border-[rgba(212,175,55,0.35)] bg-gradient-to-br from-[rgba(90,45,129,0.08)] via-transparent to-[rgba(212,175,55,0.12)]" />
+          <div className="viewfinder-frame absolute inset-4 rounded-2xl border border-[rgba(217,154,34,0.35)] bg-gradient-to-br from-[rgba(66,16,92,0.08)] via-transparent to-[rgba(0,191,203,0.1)]" />
           <div className="relative z-10 flex min-h-[420px] flex-col justify-between p-2">
             <p className="font-[family-name:var(--font-display)] text-2xl text-[var(--brand-purple)]">
               In-store kiosk experience

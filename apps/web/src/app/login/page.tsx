@@ -38,9 +38,9 @@ export default function LoginPage() {
       <form onSubmit={onSubmit} className="panel panel-gold w-full max-w-md animate-fade-up">
         <BrandLogo size="md" />
         <div className="mt-4 flex items-center gap-3">
-          <span className="h-px flex-1 bg-[rgba(212,175,55,0.45)]" />
+          <span className="h-px flex-1 bg-[rgba(217,154,34,0.45)]" />
           <p className="brand-tagline shrink-0">Try · Explore · Choose</p>
-          <span className="h-px flex-1 bg-[rgba(212,175,55,0.45)]" />
+          <span className="h-px flex-1 bg-[rgba(217,154,34,0.45)]" />
         </div>
         <h1 className="mt-3 font-[family-name:var(--font-display)] text-xl italic text-[var(--brand-purple)]">
           Sign in
@@ -48,7 +48,7 @@ export default function LoginPage() {
         <label className="mt-6 block text-sm font-medium text-[var(--muted)]">
           Email
           <input
-            className="mt-1 w-full rounded-xl border border-[rgba(90,45,129,0.2)] bg-white/80 px-4 py-3 text-[var(--ink)] outline-none focus:border-[var(--gold)]"
+            className="mt-1 w-full rounded-xl border border-[rgba(66,16,92,0.2)] bg-white/80 px-4 py-3 text-[var(--ink)] outline-none focus:border-[var(--gold)]"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             type="email"
@@ -58,7 +58,7 @@ export default function LoginPage() {
         <label className="mt-4 block text-sm font-medium text-[var(--muted)]">
           Password
           <input
-            className="mt-1 w-full rounded-xl border border-[rgba(90,45,129,0.2)] bg-white/80 px-4 py-3 text-[var(--ink)] outline-none focus:border-[var(--gold)]"
+            className="mt-1 w-full rounded-xl border border-[rgba(66,16,92,0.2)] bg-white/80 px-4 py-3 text-[var(--ink)] outline-none focus:border-[var(--gold)]"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             type="password"

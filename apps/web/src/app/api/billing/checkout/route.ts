@@ -54,7 +54,7 @@ export async function POST(req: Request) {
             name: "Trail9 Saree Try-On",
             description: `${plan.name} plan`,
             prefill: { email: user.email, name: user.name },
-            theme: { color: "#5A2D81" },
+            theme: { color: "#42105C" },
           }
         : null,
       plan: {

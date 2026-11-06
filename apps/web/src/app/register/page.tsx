@@ -56,7 +56,7 @@ export default function RegisterPage() {
           <label key={key} className="mt-4 block text-sm font-medium text-[var(--muted)]">
             {label}
             <input
-              className="mt-1 w-full rounded-xl border border-[rgba(90,45,129,0.2)] bg-white/80 px-4 py-3 outline-none focus:border-[var(--gold)]"
+              className="mt-1 w-full rounded-xl border border-[rgba(66,16,92,0.2)] bg-white/80 px-4 py-3 outline-none focus:border-[var(--gold)]"
               type={key === "password" ? "password" : key === "email" ? "email" : "text"}
               required
               value={form[key]}

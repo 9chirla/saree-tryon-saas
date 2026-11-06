@@ -254,8 +254,8 @@ model StoreSettings {
   id              String   @id @default(uuid()) @db.Uuid
   storeId         String   @unique @db.Uuid
   logoPath        String?
-  primaryColor    String   @default("#5A2D81")
-  accentColor     String   @default("#D4AF37")
+  primaryColor    String   @default("#42105C")
+  accentColor     String   @default("#D99A22")
   defaultLocale   String   @default("en")
   retentionHours  Int      @default(24)
   welcomeMessage  String?

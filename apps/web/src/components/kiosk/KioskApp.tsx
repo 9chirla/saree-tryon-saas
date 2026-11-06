@@ -238,7 +238,7 @@ export function KioskApp({ storeSlug }: { storeSlug: string }) {
     };
   }, [jobId, step, storeSlug]);
 
-  const primary = data?.store.settings?.primaryColor ?? "#5A2D81";
+  const primary = data?.store.settings?.primaryColor ?? "#42105C";
   const filtered =
     data?.sarees.filter((s) => {
       if (!filter) return true;
@@ -288,8 +288,8 @@ export function KioskApp({ storeSlug }: { storeSlug: string }) {
         {step === "welcome" && (
           <section className="panel panel-gold animate-fade-up text-center">
             <div className="relative mx-auto mb-6 flex h-44 w-44 items-center justify-center">
-              <div className="absolute inset-0 animate-pulse-ring rounded-full bg-[rgba(90,45,129,0.12)]" />
-              <div className="absolute inset-3 rounded-full border border-[rgba(212,175,55,0.45)]" />
+              <div className="absolute inset-0 animate-pulse-ring rounded-full bg-[rgba(66,16,92,0.12)]" />
+              <div className="absolute inset-3 rounded-full border border-[rgba(217,154,34,0.45)]" />
               <BrandLogo size="sm" href={null} className="relative z-10 px-3" />
             </div>
             <p className="brand-tagline">Try · Explore · Choose</p>
@@ -470,9 +470,11 @@ export function KioskApp({ storeSlug }: { storeSlug: string }) {
 
         {step === "processing" && (
           <section className="panel animate-fade-up text-center">
-            <div className="mx-auto h-16 w-16 animate-pulse-ring rounded-full border-4 border-[var(--burgundy)] border-t-transparent" />
+            <div className="mx-auto h-16 w-16 animate-pulse-ring rounded-full border-4 border-[var(--ai-teal)] border-t-transparent" />
             <p className="mt-6 text-xl">{t(locale, "processing")}</p>
-            <p className="mt-2 font-mono text-sm text-[var(--muted)]">Status: {jobStatus}</p>
+            <p className="mt-2 font-mono text-sm text-[var(--muted)]">
+              Status: <span className="ai-accent">{jobStatus}</span>
+            </p>
           </section>
         )}
 

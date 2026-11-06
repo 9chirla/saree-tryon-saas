@@ -78,11 +78,11 @@ export class DemoTryOnProvider implements VirtualTryOnProvider {
 
       const watermarkSvg = Buffer.from(`
         <svg width="${width}" height="${height}">
-          <rect x="0" y="0" width="${width}" height="56" fill="rgba(90,45,129,0.88)"/>
-          <text x="20" y="36" font-family="Arial, sans-serif" font-size="22" fill="#F0D78C" font-weight="700">
+          <rect x="0" y="0" width="${width}" height="56" fill="rgba(66,16,92,0.88)"/>
+          <text x="20" y="36" font-family="Arial, sans-serif" font-size="22" fill="#E8C36A" font-weight="700">
             DEMO — not real AI try-on
           </text>
-          <text x="20" y="${height - 24}" font-family="Arial, sans-serif" font-size="16" fill="#5A2D81">
+          <text x="20" y="${height - 24}" font-family="Arial, sans-serif" font-size="16" fill="#00BFCB">
             Trail9 sample composite · Your Saree. Virtually.
           </text>
         </svg>

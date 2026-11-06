@@ -38,7 +38,7 @@ export function BrandLogo({
     />
   );
   const shell = cn(
-    "inline-block overflow-hidden rounded-2xl bg-[#FCF8F0]/90 shadow-[0_8px_30px_rgba(90,45,129,0.08)] ring-1 ring-[rgba(212,175,55,0.35)]",
+    "inline-block overflow-hidden rounded-2xl bg-[#FFF9EF]/90 shadow-[0_8px_30px_rgba(66,16,92,0.08)] ring-1 ring-[rgba(217,154,34,0.35)]",
     className,
   );
   if (href === null) {
