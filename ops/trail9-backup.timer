@@ -1,0 +1,12 @@
+[Unit]
+Description=Daily Trail9 Postgres backup (02:30 Asia/Kolkata)
+Documentation=file:///opt/trail9/docs/DEPLOYMENT.md
+
+[Timer]
+# 02:30 IST every day
+OnCalendar=Asia/Kolkata *-*-* 02:30:00
+Persistent=true
+Unit=trail9-backup.service
+
+[Install]
+WantedBy=timers.target

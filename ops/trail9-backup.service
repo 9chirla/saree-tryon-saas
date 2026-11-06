@@ -1,0 +1,18 @@
+[Unit]
+Description=Trail9 Postgres backup to customer S3 bucket
+Documentation=file:///opt/trail9/docs/DEPLOYMENT.md
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Founder-managed env file on the VPS — never commit real secrets.
+EnvironmentFile=-/etc/trail9/backup.env
+WorkingDirectory=/opt/trail9
+ExecStart=/usr/bin/env bash /opt/trail9/scripts/backup-postgres.sh
+# Fail the unit if the script exits non-zero
+SuccessExitStatus=0
+Nice=10
+
+[Install]
+WantedBy=multi-user.target

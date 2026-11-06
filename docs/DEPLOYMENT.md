@@ -124,24 +124,54 @@ Do not expose Postgres or the AI worker on the public internet; only Caddy binds
 
 ## 8. Backup & recovery
 
-### Required: nightly Postgres dump to the customer bucket
+### Current truth: no automated backup runs today
 
-**Founder / ops must schedule this** (not wired as Compose cron yet):
+Until the founder enables the systemd timer below, **no automated backup exists**. Shipping `scripts/backup-postgres.sh` + `ops/trail9-backup.{service,timer}` in the repo does **not** schedule anything by itself.
 
-1. Run `pg_dump` against production Postgres (e.g. from the host or a one-off container on the Compose network).
-2. Upload the dump object to the **private customer bucket** (e.g. `s3://trail9-customer/backups/postgres/YYYY-MM-DD.sql.gz`) with the same credentials / IAM as above (`s3:PutObject`).
-3. Retain ≥7 days of dumps; test restore before go-live.
+### Enable nightly Postgres dump → customer bucket (founder action)
 
-Example sketch (customise; do not commit secrets):
+Script behaviour (when run):
+
+1. `pg_dump` the app database from `DATABASE_URL`
+2. gzip → upload to `s3://$S3_BUCKET_CUSTOMER/backups/YYYY-MM-DD.sql.gz`
+3. Delete objects under `backups/` older than **14 days**
+4. Exit non-zero on any failure
+
+**Install on the Mumbai VPS** (after repo checkout at `/opt/trail9` and AWS CLI + `postgresql-client` are available):
 
 ```bash
-# REQUIRED nightly step — schedule via host cron or systemd timer (not implemented in Compose yet)
-DATE=$(date -u +%F)
-docker compose -f docker-compose.prod.yml exec -T postgres \
-  pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" | gzip > "/tmp/trail9-$DATE.sql.gz"
-# Upload /tmp/trail9-$DATE.sql.gz to S3_BUCKET_CUSTOMER prefix backups/postgres/
-# using AWS CLI / rclone / mc with the provisioned keys
+# 1) Secrets file on the host — never commit this file
+sudo mkdir -p /etc/trail9
+sudo install -m 600 /dev/null /etc/trail9/backup.env
+# Edit /etc/trail9/backup.env and set (names exact):
+#   DATABASE_URL=...
+#   S3_ENDPOINT=...
+#   S3_REGION=ap-south-1
+#   S3_ACCESS_KEY_ID=...
+#   S3_SECRET_ACCESS_KEY=...
+#   S3_BUCKET_CUSTOMER=trail9-customer
+#   S3_FORCE_PATH_STYLE=true
+
+# 2) Unit files (adjust path if the checkout is not /opt/trail9)
+sudo cp /opt/trail9/ops/trail9-backup.service /etc/systemd/system/
+sudo cp /opt/trail9/ops/trail9-backup.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now trail9-backup.timer
 ```
+
+**Verify:**
+
+```bash
+systemctl list-timers | grep trail9
+# Expect trail9-backup.timer listed; next run ~02:30 Asia/Kolkata
+
+# Manual one-shot — must create backups/YYYY-MM-DD.sql.gz in the customer bucket
+sudo systemctl start trail9-backup.service
+sudo systemctl status trail9-backup.service --no-pager
+# Then confirm the object exists in S3_BUCKET_CUSTOMER under backups/
+```
+
+Timer schedule: **daily 02:30 IST** (`Asia/Kolkata`) via `ops/trail9-backup.timer`.
 
 Also:
 
@@ -168,4 +198,5 @@ Also:
 - Create the two private buckets and IAM user/policy in `ap-south-1` (or chosen India provider).
 - Place real `S3_*` / `SESSION_SECRET` / Razorpay / `CLEANUP_CRON_SECRET` values on the VPS (never in git).
 - Point DNS `DOMAIN` at the VPS so Caddy can issue certificates.
-- Schedule the nightly `pg_dump` → customer-bucket upload (documented above; not automated in Compose yet).
+- Enable backups: write `/etc/trail9/backup.env`, then `systemctl enable --now trail9-backup.timer` (until then, **no automated backup runs**).
+

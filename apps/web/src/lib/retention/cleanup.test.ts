@@ -12,6 +12,11 @@ const prisma = new PrismaClient();
 /** Ready when founder has provisioned S3_* credentials (see docs/DEPLOYMENT.md). */
 const s3DeleteTestEnabled = s3Configured();
 
+const S3_SKIP_MESSAGE =
+  "SKIPPED: S3 retention delete test — S3_* env vars not set.\n" +
+  "Set S3_ENDPOINT, S3_BUCKET_CUSTOMER, S3_ACCESS_KEY_ID,\n" +
+  "S3_SECRET_ACCESS_KEY to enable.";
+
 describe("retention cleanup", () => {
   beforeAll(async () => {
     await prisma.$connect();
@@ -53,23 +58,27 @@ describe("retention cleanup", () => {
     expect(updated.sareeImagePath).toContain("catalogue/");
   });
 
-  it.skipIf(!s3DeleteTestEnabled)(
-    "deletes customer session object via S3 DeleteObject (retention path)",
-    async () => {
-      // Exercises S3StorageProvider.delete — the same deleteUpload path retention uses.
-      // Skipped until S3_ENDPOINT + S3_ACCESS_KEY_ID + S3_SECRET_ACCESS_KEY are set.
-      const storage = new S3StorageProvider();
-      const prefix = `sessions/retention-s3-test/${randomUUID()}`;
-      const stored = await storage.put(
-        "customer",
-        prefix,
-        Buffer.from([0xff, 0xd8, 0xff, 0xd9]),
-        "image/jpeg",
-      );
-      expect(stored.key.startsWith("s3:")).toBe(true);
-      expect(await storage.exists(stored.key)).toBe(true);
-      await storage.delete(stored.key);
-      expect(await storage.exists(stored.key)).toBe(false);
-    },
-  );
+  it("deletes customer session object via S3 DeleteObject (retention path)", async ({ skip }) => {
+    if (!s3DeleteTestEnabled) {
+      // Loud skip — must appear in default (non-verbose) Vitest output.
+      console.warn(S3_SKIP_MESSAGE);
+      skip();
+      return;
+    }
+
+    // Exercises S3StorageProvider.delete — the same deleteUpload path retention uses.
+    const storage = new S3StorageProvider();
+    const prefix = `sessions/retention-s3-test/${randomUUID()}`;
+    const stored = await storage.put(
+      "customer",
+      prefix,
+      Buffer.from([0xff, 0xd8, 0xff, 0xd9]),
+      "image/jpeg",
+    );
+    expect(stored.key.startsWith("s3:")).toBe(true);
+    expect(await storage.exists(stored.key)).toBe(true);
+    await storage.delete(stored.key);
+    expect(await storage.exists(stored.key)).toBe(false);
+  });
 });
+
