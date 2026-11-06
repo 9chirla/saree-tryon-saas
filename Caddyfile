@@ -1,0 +1,8 @@
+# Trail9 — Caddy TLS terminator for single-VPS Compose.
+# Set DOMAIN in the environment (e.g. tryon.example.com).
+# Caddy obtains certificates automatically once DNS points here.
+
+{$DOMAIN:localhost} {
+	encode gzip
+	reverse_proxy web:3000
+}

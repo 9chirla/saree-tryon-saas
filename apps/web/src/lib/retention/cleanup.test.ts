@@ -4,9 +4,13 @@ import { randomUUID } from "crypto";
 import { mkdir, writeFile } from "fs/promises";
 import path from "path";
 import { runRetentionCleanup } from "./cleanup";
-import { env } from "../env";
+import { env, s3Configured } from "../env";
+import { S3StorageProvider } from "../storage/s3-provider";
 
 const prisma = new PrismaClient();
+
+/** Ready when founder has provisioned S3_* credentials (see docs/DEPLOYMENT.md). */
+const s3DeleteTestEnabled = s3Configured();
 
 describe("retention cleanup", () => {
   beforeAll(async () => {
@@ -48,4 +52,24 @@ describe("retention cleanup", () => {
     // Catalogue path must not be wiped
     expect(updated.sareeImagePath).toContain("catalogue/");
   });
+
+  it.skipIf(!s3DeleteTestEnabled)(
+    "deletes customer session object via S3 DeleteObject (retention path)",
+    async () => {
+      // Exercises S3StorageProvider.delete — the same deleteUpload path retention uses.
+      // Skipped until S3_ENDPOINT + S3_ACCESS_KEY_ID + S3_SECRET_ACCESS_KEY are set.
+      const storage = new S3StorageProvider();
+      const prefix = `sessions/retention-s3-test/${randomUUID()}`;
+      const stored = await storage.put(
+        "customer",
+        prefix,
+        Buffer.from([0xff, 0xd8, 0xff, 0xd9]),
+        "image/jpeg",
+      );
+      expect(stored.key.startsWith("s3:")).toBe(true);
+      expect(await storage.exists(stored.key)).toBe(true);
+      await storage.delete(stored.key);
+      expect(await storage.exists(stored.key)).toBe(false);
+    },
+  );
 });

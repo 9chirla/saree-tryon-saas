@@ -1,0 +1,79 @@
+# Trail9 production stack — single long-lived VPS (Mumbai / India region).
+# Usage: docker compose -f docker-compose.prod.yml up -d --build
+# Requires a filled .env (see .env.example + docs/DEPLOYMENT.md). Do not target Vercel.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-saree}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-saree_tryon}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    # Not published on the public interface — Compose network only.
+    expose:
+      - "5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  ai-worker:
+    build: ./apps/ai-worker
+    restart: unless-stopped
+    environment:
+      STORAGE_DIR: /data/uploads
+      DEMO_WATERMARK: "DEMO — not real AI"
+    volumes:
+      - upload_data:/data/uploads
+    expose:
+      - "8000"
+    # Internal only — reached by web via AI_WORKER_URL
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-saree}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-saree_tryon}?schema=public
+      AI_WORKER_URL: http://ai-worker:8000
+      UPLOAD_DIR: /data/uploads
+      APP_URL: ${APP_URL:?set APP_URL to https://your-domain}
+    volumes:
+      - upload_data:/data/uploads
+    expose:
+      - "3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ai-worker:
+        condition: service_started
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN for TLS e.g. tryon.example.com}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+
+volumes:
+  postgres_data:
+  upload_data:
+  caddy_data:
+  caddy_config:
