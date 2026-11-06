@@ -112,8 +112,8 @@ async function main() {
       slug: "demo-silk-house",
       settings: {
         create: {
-          primaryColor: "#6B1E2E",
-          accentColor: "#C4A35A",
+          primaryColor: "#5A2D81",
+          accentColor: "#D4AF37",
           defaultLocale: "en",
           retentionHours: 24,
           welcomeMessage: "Welcome to Demo Silk House. Try our sarees virtually — free in-store demo.",

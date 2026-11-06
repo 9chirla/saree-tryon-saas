@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
+import { BrandLogo } from "@/components/BrandLogo";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -39,10 +40,10 @@ export default function RegisterPage() {
   return (
     <main className="kiosk-shell flex min-h-dvh items-center justify-center px-4 py-10">
       <form onSubmit={onSubmit} className="panel w-full max-w-lg animate-fade-up">
-        <Link href="/" className="font-[family-name:var(--font-display)] text-3xl font-semibold text-[var(--burgundy)]">
-          trAIl9
-        </Link>
-        <h1 className="mt-2 text-xl font-semibold">Register your store</h1>
+        <BrandLogo size="md" />
+        <h1 className="mt-3 font-[family-name:var(--font-display)] text-xl italic text-[var(--brand-purple)]">
+          Register your store
+        </h1>
         {(
           [
             ["name", "Your name"],
@@ -55,7 +56,7 @@ export default function RegisterPage() {
           <label key={key} className="mt-4 block text-sm font-medium text-[var(--muted)]">
             {label}
             <input
-              className="mt-1 w-full rounded-xl border border-[rgba(107,30,46,0.15)] bg-white/80 px-4 py-3 outline-none focus:border-[var(--burgundy)]"
+              className="mt-1 w-full rounded-xl border border-[rgba(90,45,129,0.2)] bg-white/80 px-4 py-3 outline-none focus:border-[var(--gold)]"
               type={key === "password" ? "password" : key === "email" ? "email" : "text"}
               required
               value={form[key]}
@@ -67,6 +68,12 @@ export default function RegisterPage() {
         <button className="btn-primary mt-6 w-full" disabled={loading} type="submit">
           {loading ? "Creating…" : "Create account"}
         </button>
+        <p className="mt-4 text-center text-sm text-[var(--muted)]">
+          Already have an account?{" "}
+          <Link href="/login" className="text-[var(--brand-purple)] underline">
+            Sign in
+          </Link>
+        </p>
       </form>
     </main>
   );

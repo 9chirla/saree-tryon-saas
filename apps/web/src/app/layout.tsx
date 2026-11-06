@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import { Cormorant_Garamond, Source_Sans_3 } from "next/font/google";
+import { Playfair_Display, Source_Sans_3 } from "next/font/google";
 import "./globals.css";
 
-const display = Cormorant_Garamond({
+const display = Playfair_Display({
   subsets: ["latin"],
   weight: ["500", "600", "700"],
   variable: "--font-display",
@@ -15,8 +15,12 @@ const sans = Source_Sans_3({
 });
 
 export const metadata: Metadata = {
-  title: "trAIl9 — Virtual Saree Try-On",
-  description: "Multi-tenant AI virtual saree try-on for Indian textile retailers",
+  title: "Trail9 — Your Saree. Virtually.",
+  description: "Try · Explore · Choose — AI virtual saree try-on for Indian textile retailers",
+  icons: {
+    icon: "/brand/favicon.png",
+    apple: "/brand/favicon.png",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

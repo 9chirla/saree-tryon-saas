@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
+import { BrandLogo } from "@/components/BrandLogo";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -35,14 +36,15 @@ export default function LoginPage() {
   return (
     <main className="kiosk-shell flex min-h-dvh items-center justify-center px-4">
       <form onSubmit={onSubmit} className="panel w-full max-w-md animate-fade-up">
-        <Link href="/" className="font-[family-name:var(--font-display)] text-3xl font-semibold text-[var(--burgundy)]">
-          trAIl9
-        </Link>
-        <h1 className="mt-2 text-xl font-semibold text-[var(--ink)]">Sign in</h1>
+        <BrandLogo size="md" />
+        <p className="brand-tagline mt-3">Try · Explore · Choose</p>
+        <h1 className="mt-2 font-[family-name:var(--font-display)] text-xl italic text-[var(--brand-purple)]">
+          Sign in
+        </h1>
         <label className="mt-6 block text-sm font-medium text-[var(--muted)]">
           Email
           <input
-            className="mt-1 w-full rounded-xl border border-[rgba(107,30,46,0.15)] bg-white/80 px-4 py-3 text-[var(--ink)] outline-none focus:border-[var(--burgundy)]"
+            className="mt-1 w-full rounded-xl border border-[rgba(90,45,129,0.2)] bg-white/80 px-4 py-3 text-[var(--ink)] outline-none focus:border-[var(--gold)]"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             type="email"
@@ -52,7 +54,7 @@ export default function LoginPage() {
         <label className="mt-4 block text-sm font-medium text-[var(--muted)]">
           Password
           <input
-            className="mt-1 w-full rounded-xl border border-[rgba(107,30,46,0.15)] bg-white/80 px-4 py-3 text-[var(--ink)] outline-none focus:border-[var(--burgundy)]"
+            className="mt-1 w-full rounded-xl border border-[rgba(90,45,129,0.2)] bg-white/80 px-4 py-3 text-[var(--ink)] outline-none focus:border-[var(--gold)]"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             type="password"
@@ -65,7 +67,7 @@ export default function LoginPage() {
         </button>
         <p className="mt-4 text-center text-sm text-[var(--muted)]">
           New retailer?{" "}
-          <Link href="/register" className="text-[var(--burgundy)] underline">
+          <Link href="/register" className="text-[var(--brand-purple)] underline">
             Register
           </Link>
         </p>

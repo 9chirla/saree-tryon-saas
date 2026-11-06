@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { BrandLogo } from "@/components/BrandLogo";
 import { Locale, locales, t } from "@/lib/i18n";
 
 type Step = "welcome" | "consent" | "camera" | "saree" | "processing" | "result" | "ended";
@@ -237,7 +238,7 @@ export function KioskApp({ storeSlug }: { storeSlug: string }) {
     };
   }, [jobId, step, storeSlug]);
 
-  const primary = data?.store.settings?.primaryColor ?? "#6B1E2E";
+  const primary = data?.store.settings?.primaryColor ?? "#5A2D81";
   const filtered =
     data?.sarees.filter((s) => {
       if (!filter) return true;
@@ -256,12 +257,13 @@ export function KioskApp({ storeSlug }: { storeSlug: string }) {
   return (
     <main className="kiosk-shell min-h-dvh px-4 py-6 md:px-8" style={{ ["--burgundy" as string]: primary }}>
       <div className="mx-auto flex max-w-3xl flex-col gap-6">
-        <header className="flex items-end justify-between gap-4">
-          <div>
-            <p className="font-[family-name:var(--font-display)] text-4xl font-semibold text-[var(--burgundy)] md:text-5xl">
+        <header className="flex flex-wrap items-end justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            <BrandLogo size="sm" href="/" className="mb-2" />
+            <p className="font-[family-name:var(--font-display)] text-3xl font-semibold text-[var(--burgundy)] md:text-4xl">
               {data?.store.name ?? "…"}
             </p>
-            <p className="text-sm text-[var(--muted)]">trAIl9 virtual try-on</p>
+            <p className="brand-tagline mt-1">Your Saree. Virtually.</p>
           </div>
           <label className="text-sm text-[var(--muted)]">
             {t(locale, "language")}
@@ -322,11 +324,13 @@ export function KioskApp({ storeSlug }: { storeSlug: string }) {
 
         {step === "camera" && (
           <section className="panel animate-fade-up">
-            <div className="relative overflow-hidden rounded-2xl bg-black">
+            <div className="viewfinder-frame relative overflow-hidden rounded-2xl bg-black">
               {!personPreview ? (
                 <>
                   <video ref={videoRef} playsInline muted className="aspect-[3/4] w-full object-cover" />
                   <div className="pointer-events-none absolute inset-8 rounded-[40%] border-2 border-[var(--gold)]/70" />
+                  <span className="pointer-events-none absolute right-3 top-3 h-7 w-7 border-r-[3px] border-t-[3px] border-[var(--gold)]" />
+                  <span className="pointer-events-none absolute bottom-3 left-3 h-7 w-7 border-b-[3px] border-l-[3px] border-[var(--gold)]" />
                 </>
               ) : (
                 // eslint-disable-next-line @next/next/no-img-element

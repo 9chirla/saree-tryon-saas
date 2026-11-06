@@ -51,10 +51,10 @@ export async function POST(req: Request) {
         ? {
             key: result.keyId,
             subscription_id: result.subscriptionId,
-            name: "trAIl9 Saree Try-On",
+            name: "Trail9 Saree Try-On",
             description: `${plan.name} plan`,
             prefill: { email: user.email, name: user.name },
-            theme: { color: "#6B1E2E" },
+            theme: { color: "#5A2D81" },
           }
         : null,
       plan: {
